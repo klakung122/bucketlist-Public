@@ -1,0 +1,208 @@
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 16px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.back {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.back:hover {
+    text-decoration: underline;
+}
+
+.title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #ec4899;
+}
+
+/* Card Box */
+.box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    margin-top: 18px;
+}
+
+.boxTitleCon {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.boxTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #9333ea;
+}
+
+/* กล่องปุ่ม */
+.actionGroup {
+    display: flex;
+    flex-direction: row;
+    /* เปลี่ยนเป็นแนวนอน */
+    gap: 12px;
+    /* ระยะห่างระหว่างปุ่ม */
+    margin-top: 12px;
+}
+
+/* ปุ่มเพิ่ม */
+.addBtn {
+    flex: 1;
+    /* ให้ปุ่มขยายเท่า ๆ กัน */
+    background: linear-gradient(90deg, #60a5fa, #a78bfa, #f9a8d4);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-weight: 700;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.addBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+}
+
+/* ปุ่มแก้ไข */
+.editBtn {
+    /* ให้ขยายเท่า addBtn */
+    background: #f9a8d4;
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-weight: 700;
+    padding: 8px 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.editBtn:hover {
+    background: #ec4899;
+    transform: scale(1.05);
+}
+
+/* ลิสต์ */
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.listItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: #fdf2f8;
+    border: 1px solid #fbcfe8;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.listItem:hover {
+    background: #fce7f3;
+    transform: translateX(4px);
+}
+
+.circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #ec4899;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    color: #fff;
+    background: #fff;
+}
+
+.checkIcon {
+    color: #ec4899;
+    font-size: 14px;
+}
+
+.done {
+    opacity: 0.7;
+    text-decoration: line-through;
+}
+
+.empty {
+    text-align: center;
+    color: #777;
+    font-style: italic;
+}
+
+/* Invite friends box */
+.inviteRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.avatars {
+    display: flex;
+}
+
+.avatars img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    margin-left: -10px;
+    /* ซ้อนกัน */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.avatars img:first-child {
+    margin-left: 0;
+}
+
+/* Button */
+.inviteBtn {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa, #f9a8d4);
+    border: none;
+    border-radius: 9999px;
+    color: #fff;
+    font-weight: 600;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.inviteBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+}

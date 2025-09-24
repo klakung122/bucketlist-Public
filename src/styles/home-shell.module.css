@@ -1,0 +1,46 @@
+.shell {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #fdf2f8, #dbeafe);
+    display: grid;
+    grid-template-columns: 280px 1fr;
+}
+
+/* desktop: sidebar คงที่ทางซ้าย */
+.content {
+    padding: 24px;
+}
+
+.mobileHeader {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    right: 0;
+    z-index: 19;
+}
+
+.menuBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid #f3e8ff;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+/* ≤768px: ใช้ single column + sidebar เป็น overlay */
+@media (max-width: 768px) {
+    .shell {
+        grid-template-columns: 1fr;
+    }
+
+    .mobileHeader {
+        display: block;
+        width: fit-content;
+    }
+}

@@ -1,0 +1,209 @@
+/* Base */
+.sidebar {
+    width: 280px;
+    min-height: 100vh;
+    background: #ffffff;
+    border-right: 2px solid #fce7f3;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    padding: 20px 16px;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 20;
+}
+
+/* Backdrop (มือถือ) */
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 19;
+}
+
+.backdropShow {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ปุ่มปิด (มือถือ) */
+.closeBtn {
+    display: none;
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    background: #fff;
+    border: 1px solid #f3e8ff;
+    border-radius: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+}
+
+/* โปรไฟล์ ฯลฯ (ของเดิม) */
+.profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 14px;
+    background: #fff0f6;
+}
+
+.avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.25);
+}
+
+.name {
+    font-weight: 800;
+    color: #ec4899;
+    line-height: 1.1;
+}
+
+.email {
+    font-size: .85rem;
+    color: #6b7280;
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    color: #374151;
+    text-decoration: none;
+    transition: .15s;
+    border: 1px solid transparent;
+}
+
+.navItem:hover {
+    background: #fdf2f8;
+    border-color: #fbcfe8;
+}
+
+.active {
+    background: #fce7f3;
+    border-color: #f9a8d4;
+    color: #ec4899;
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #9333ea;
+    font-weight: 800;
+    margin-top: 6px;
+}
+
+.topicList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 40vh;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.topicItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #f3e8ff;
+    background: #faf5ff;
+    color: #374151;
+    text-decoration: none;
+    transition: .15s;
+}
+
+.topicItem:hover {
+    background: #f3e8ff;
+    border-color: #e9d5ff;
+}
+
+.activeTopic {
+    background: #e9d5ff;
+    border-color: #c4b5fd;
+    color: #6d28d9;
+    font-weight: 700;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #a78bfa;
+}
+
+.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bottom {
+    margin-top: auto;
+    display: grid;
+    gap: 8px;
+}
+
+.bottomBtn {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    text-decoration: none;
+    cursor: pointer;
+    transition: .15s;
+}
+
+.bottomBtn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+/* --- Mobile overlay mode --- */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        height: 100vh;
+        z-index: 20;
+    }
+
+    .open {
+        transform: translateX(0);
+    }
+
+    .closeBtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+}
