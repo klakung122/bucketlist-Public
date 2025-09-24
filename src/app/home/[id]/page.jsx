@@ -52,7 +52,6 @@ export default function TopicPage() {
     return (
         <div className={styles.container}>
             <header className={styles.header}>
-                <Link href="/home" className={styles.back}>{`← กลับหน้า Home`}</Link>
                 <h1 className={styles.title}>
                     <MdOutlineChecklist /> หัวข้อ #{id}
                 </h1>
