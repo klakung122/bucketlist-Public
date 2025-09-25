@@ -4,6 +4,7 @@ import pool from './db.js';
 import cors from "cors";
 import path from 'path';
 import http from "http";
+import authRoutes from "./routes/auth.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -18,6 +19,8 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.use("/auth", authRoutes);
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);

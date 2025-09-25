@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { FiSettings, FiLogOut, FiHome, FiX } from "react-icons/fi";
 import { MdOutlineChecklist } from "react-icons/md";
 import s from "@/styles/sidebar.module.css";
+import { useMe } from "@/hooks/useMe";
 
 const mockTopics = [
     { id: 1, name: "ไปเที่ยวญี่ปุ่น" },
@@ -14,32 +15,39 @@ const mockTopics = [
 
 export default function Sidebar({ isOpen = false, isMobile = false, onClose = () => { } }) {
     const pathname = usePathname();
+    const { user, loading } = useMe();
+
     const isActive = (href) => pathname === href || pathname?.startsWith(href + "/");
 
-    const onLogout = () => {
-        if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
-            window.location.href = "/login";
-        }
+    const onLogout = async () => {
+        if (!confirm("ต้องการออกจากระบบใช่ไหม?")) return;
+        try {
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+                method: "POST",
+                credentials: "include",
+            });
+        } catch { }
+        window.location.href = "/login";
     };
+
+    const avatarSrc =
+        user?.profile_image ||
+        "no-image.png";
 
     return (
         <>
-            {/* Backdrop เฉพาะมือถือ */}
             <div
                 className={`${s.backdrop} ${isMobile && isOpen ? s.backdropShow : ""}`}
                 onClick={onClose}
                 aria-hidden="true"
             />
-
-            {/* สำคัญ: ไม่ใช้ aria-hidden ปิดทั้ง aside; ใช้ inert แทน */}
             <aside
                 id="sidebar"
                 className={`${s.sidebar} ${isMobile && isOpen ? s.open : ""}`}
-                inert={isMobile && !isOpen}   // ✅ เดสก์ท็อป inert=false เสมอ → คลิกได้
+                inert={isMobile && !isOpen}
                 role="navigation"
                 aria-label="Sidebar"
             >
-                {/* ปุ่มปิดแสดงเฉพาะตอนเปิด ป้องกันโฟกัสค้าง */}
                 {isMobile && isOpen && (
                     <button className={s.closeBtn} onClick={onClose} aria-label="ปิดเมนู">
                         <FiX />
@@ -48,10 +56,24 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
 
                 {/* Profile */}
                 <div className={s.profile}>
-                    <img src="https://i.pravatar.cc/96?img=5" alt="โปรไฟล์" className={s.avatar} />
+                    <img src={avatarSrc} alt="โปรไฟล์" className={s.avatar} />
                     <div>
-                        <div className={s.name}>Watcharakon</div>
-                        <div className={s.email}>you@example.com</div>
+                        {loading ? (
+                            <>
+                                <div className={s.name}>กำลังโหลด…</div>
+                            </>
+                        ) : user ? (
+                            <>
+                                <div className={s.name}>{user.username}</div>
+                            </>
+                        ) : (
+                            <>
+                                <div className={s.name}>ผู้เยี่ยมชม</div>
+                                <div className={s.email}>
+                                    <Link href="/login" className={s.link}>เข้าสู่ระบบ</Link>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
