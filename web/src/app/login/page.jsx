@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import styles from "@/styles/login.module.css";
+import { API_BASE } from "@/lib/api";
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
@@ -15,7 +16,7 @@ export default function LoginPage() {
 
         try {
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+                `${API_BASE}/auth/login`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
