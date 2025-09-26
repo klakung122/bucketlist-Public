@@ -4,7 +4,10 @@ import pool from './db.js';
 import cors from "cors";
 import path from 'path';
 import http from "http";
+import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
+import topicsRouter from "./routes/topics.js";
+import { requireAuth } from "./middlewares/requireAuth.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -16,11 +19,15 @@ app.use(cors({
     credentials: true,
 }))
 
+app.use(cookieParser());
+
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use("/auth", authRoutes);
+
+app.use("/topics", requireAuth, topicsRouter);
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
