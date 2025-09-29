@@ -54,7 +54,7 @@ async function ensureUniqueSlug(base, conn) {
 
 // GET /topics
 export async function listTopics(req, res) {
-    const userId = req.user.id; // มั่นใจว่า middleware เติมให้แล้ว
+    const userId = req.user.id;
     try {
         const [rows] = await pool.query(
             `SELECT t.id, t.title, t.slug, t.created_at
@@ -70,7 +70,6 @@ export async function listTopics(req, res) {
         res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
     }
 }
-
 // POST /topics { title, description? }
 // owner_id ควรมาจาก auth middleware (JWT) แต่เดโมนี้จะ mock เป็น 1
 export async function createTopic(req, res) {
@@ -251,6 +250,86 @@ export async function createListByTopicSlug(req, res) {
         if (err?.code === "ER_DUP_ENTRY") {
             return res.status(409).json({ ok: false, error: "DUPLICATE_TITLE" });
         }
+        console.error(err);
+        res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    } finally {
+        conn.release();
+    }
+}
+
+export async function listOwnedTopics(req, res) {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT t.id, t.title, t.slug, t.created_at
+       FROM topics t
+       WHERE t.owner_id = ?
+       ORDER BY t.id DESC`,
+            [userId]
+        );
+        res.json({ ok: true, data: rows });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+}
+
+export async function updateTopicTitleOwnerOnly(req, res) {
+    const userId = req.user?.id;
+    const id = Number(req.params.id || 0);
+    const { title } = req.body || {};
+    if (!userId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    if (!id || !title || !title.trim()) {
+        return res.status(400).json({ ok: false, error: "BAD_REQUEST" });
+    }
+
+    try {
+        // ตรวจว่าเป็น owner
+        const [rows] = await pool.query(
+            "SELECT id FROM topics WHERE id = ? AND owner_id = ? LIMIT 1",
+            [id, userId]
+        );
+        if (rows.length === 0) {
+            return res.status(403).json({ ok: false, error: "FORBIDDEN" });
+        }
+
+        await pool.query("UPDATE topics SET title = ? WHERE id = ?", [title.trim(), id]);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+}
+
+export async function deleteTopicOwnerOnly(req, res) {
+    const userId = req.user?.id;
+    const id = Number(req.params.id || 0);
+    if (!userId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    if (!id) return res.status(400).json({ ok: false, error: "BAD_REQUEST" });
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // ตรวจว่าเป็น owner
+        const [[own]] = await conn.query(
+            "SELECT id FROM topics WHERE id = ? AND owner_id = ? LIMIT 1",
+            [id, userId]
+        );
+        if (!own) {
+            await conn.rollback();
+            return res.status(403).json({ ok: false, error: "FORBIDDEN" });
+        }
+
+        // ลบหัวข้อ (FK จะลบ lists / topic_members ที่ผูกแบบ CASCADE ให้ ตาม schema)
+        await conn.query("DELETE FROM topics WHERE id = ?", [id]);
+
+        await conn.commit();
+        res.json({ ok: true });
+    } catch (err) {
+        await conn.rollback();
         console.error(err);
         res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
     } finally {

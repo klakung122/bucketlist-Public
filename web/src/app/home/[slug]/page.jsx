@@ -13,6 +13,7 @@ export default function TopicPage() {
     const [lists, setLists] = useState([]); // {id, text, done}
     const [loading, setLoading] = useState(false);
     const [topic, setTopic] = useState(null);
+    const [editMode, setEditMode] = useState(false);
 
     // โหลด lists ของหัวข้อนี้
     useEffect(() => {
@@ -20,6 +21,8 @@ export default function TopicPage() {
         (async () => {
             try {
                 const res = await fetch(`${API_BASE}/topics/${slug}/lists`, { credentials: "include" });
+                if (res.status === 401) { window.location.href = "/login?next=/home/" + slug; return; }
+                if (res.status === 403) { console.warn("Forbidden"); return; }
                 const json = await res.json();
                 if (!alive) return;
                 if (json.ok) {
@@ -67,6 +70,8 @@ export default function TopicPage() {
                 credentials: "include",
                 body: JSON.stringify({ title: value }),
             });
+            if (res.status === 401) return window.location.href = "/login?next=/home/" + slug;
+            if (res.status === 403) return Swal.fire({ icon: "error", title: "ไม่มีสิทธิ์" });
             const json = await res.json();
 
             if (!json.ok) {
@@ -106,6 +111,8 @@ export default function TopicPage() {
                 credentials: "include",
                 body: JSON.stringify({ status: nextDone ? "archived" : "active" }),
             });
+            if (res.status === 401) return window.location.href = "/login?next=/home/" + slug;
+            if (res.status === 403) return Swal.fire({ icon: "error", title: "ไม่มีสิทธิ์" });
             const json = await res.json();
             if (!json.ok) {
                 // rollback ถ้าพัง
@@ -125,6 +132,8 @@ export default function TopicPage() {
                 const res = await fetch(`${API_BASE}/topics/${slug}`, {
                     credentials: "include",
                 });
+                if (res.status === 401) { window.location.href = "/login?next=/home/" + slug; return; }
+                if (res.status === 403) { console.warn("Forbidden"); return; }
                 const json = await res.json();
                 if (json.ok) setTopic(json.data);
             } catch (err) {
@@ -132,6 +141,67 @@ export default function TopicPage() {
             }
         })();
     }, [slug]);
+
+    const handleEdit = async (index) => {
+        const item = lists[index];
+        const { value } = await Swal.fire({
+            title: "แก้ไขรายการ",
+            input: "text",
+            inputValue: item.text,
+            confirmButtonText: "บันทึก",
+            showCancelButton: true,
+            confirmButtonColor: "#8b5cf6",
+        });
+        if (!value || !value.trim()) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/lists/${item.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ title: value.trim() }),
+            });
+            const json = await res.json();
+            if (json.ok) {
+                setLists(prev => prev.map((it, i) =>
+                    i === index ? { ...it, text: value.trim() } : it
+                ));
+            } else {
+                Swal.fire({ icon: "error", title: "แก้ไขไม่สำเร็จ" });
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleDelete = async (index) => {
+        const item = lists[index];
+        const confirm = await Swal.fire({
+            title: "ลบรายการ?",
+            text: item.text,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "ลบ",
+            confirmButtonColor: "#ef4444",
+            cancelButtonText: "ยกเลิก",
+        });
+        if (!confirm.isConfirmed) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/lists/${item.id}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            const json = await res.json();
+            if (json.ok) {
+                setLists(prev => prev.filter((_, i) => i !== index));
+            } else {
+                Swal.fire({ icon: "error", title: "ลบไม่สำเร็จ" });
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     if (!topic) return <h1 className={styles.title}>กำลังโหลด...</h1>;
 
@@ -152,10 +222,29 @@ export default function TopicPage() {
                 </div>
             </section>
 
+            {/* Invite Friends */}
+            <section className={styles.box}>
+                <h2 className={styles.boxTitle}>เชิญเพื่อน</h2>
+                <div className={styles.inviteRow}>
+                    <div className={styles.avatars}>
+                        <img src="https://i.pravatar.cc/40?img=1" alt="friend1" />
+                        <img src="https://i.pravatar.cc/40?img=2" alt="friend2" />
+                        <img src="https://i.pravatar.cc/40?img=3" alt="friend3" />
+                    </div>
+                    <button className={styles.inviteBtn}>➕ เชิญเพื่อน</button>
+                </div>
+            </section>
+
             <section className={styles.box}>
                 <div className={styles.boxTitleCon}>
                     <h2 className={styles.boxTitle}>ลิสต์ทั้งหมด</h2>
-                    <button type="button" className={styles.editBtn}>✏️ แก้ไข</button>
+                    <button
+                        type="button"
+                        className={styles.editBtn}
+                        onClick={() => setEditMode(prev => !prev)}
+                    >
+                        {editMode ? "✅ เสร็จสิ้น" : "✏️ แก้ไข"}
+                    </button>
                 </div>
 
                 {lists.length === 0 ? (
@@ -166,12 +255,37 @@ export default function TopicPage() {
                             <li
                                 key={item.id}
                                 className={`${styles.listItem} ${item.done ? styles.done : ""}`}
-                                onClick={() => toggleDone(idx)}
+                                onClick={!editMode ? () => toggleDone(idx) : undefined}
                             >
-                                <span className={styles.circle}>
-                                    {item.done && <FaCheck className={styles.checkIcon} />}
-                                </span>
-                                <span>{item.text}</span>
+                                <div className={styles.listTitle}>
+                                    <span className={styles.circle}>
+                                        {item.done && <FaCheck className={styles.checkIcon} />}
+                                    </span>
+                                    <span className={`${item.done ? styles.doneText : ""}`}>{item.text}</span>
+                                </div>
+
+                                {editMode && !item.done && (
+                                    <div className={styles.actions}>
+                                        <button
+                                            type="button"
+                                            className={styles.actionBtn}
+                                            onClick={() => handleEdit(idx)}
+                                            aria-label="แก้ไขรายการ"
+                                            title="แก้ไข"
+                                        >
+                                            ✏️
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.actionBtn}
+                                            onClick={() => handleDelete(idx)}
+                                            aria-label="ลบรายการ"
+                                            title="ลบ"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                )}
                             </li>
                         ))}
                     </ul>

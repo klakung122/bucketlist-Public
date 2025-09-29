@@ -147,6 +147,130 @@
     border: 1px solid #fecaca;
 }
 
+/* แถว input + ปุ่ม */
+.row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+/* รายการหัวข้อ */
+.topicList {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    list-style: none;
+    padding: 0;
+}
+
+.topicItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+    background: #fff;
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.topicName {
+    font-weight: 600;
+}
+
+/* ปุ่มแอ็กชันของหัวข้อ */
+.topicActions {
+    display: flex;
+    gap: 8px;
+}
+
+/* อินพุตแก้ไข inline */
+.inputInline {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ปุ่มสีแดงลบ */
+.btnDanger {
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btnDanger:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.item {
+    margin-bottom: 12px;
+}
+
+.topicLink {
+    display: flex;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #fdf2f8;
+    border: 1px solid #fbcfe8;
+    font-weight: 500;
+    color: #333;
+    transition: 0.2s;
+}
+
+.topicLink:hover {
+    background: #fce7f3;
+    transform: translateX(4px);
+}
+
+.actions {
+    margin-left: auto;
+    /* ดันไปชิดขวา */
+    display: flex;
+    gap: 8px;
+    /* ระยะห่างระหว่างปุ่ม */
+    align-items: center;
+}
+
+/* ปุ่ม action */
+.actionBtn {
+    background: #fffbc7;
+    /* เทาอ่อน */
+    border: 1px solid #fff89d;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.actionBtn:hover {
+    background: #fff9a9;
+    /* hover ฟ้าอ่อน */
+    border-color: #fff785;
+}
+
+/* ถ้าอยากแยกสีให้ปุ่มลบ */
+.actionBtn:last-child {
+    background: #ffbaba;
+    border-color: #ff9191;
+}
+
+.actionBtn:last-child:hover {
+    background: #ff9191;
+    border-color: rgb(255, 100, 100);
+    color: white;
+}
+
 @media (max-width: 768px) {
     .wrap {
         padding: 16px;

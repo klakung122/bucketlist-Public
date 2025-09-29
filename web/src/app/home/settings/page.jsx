@@ -1,39 +1,36 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import s from "@/styles/settings.module.css";
+import { API_BASE } from "@/lib/api";
+import { absolutize } from "@/utils/url";
 
 export default function SettingsPage({
-    // ให้คุณส่ง callback จริงมาทีหลังได้ (ต่อ API เอง)
-    onUploadAvatar,      // (file: File) => Promise<string> // return avatar URL
+    onUploadAvatar,      // (file: File) => Promise<string>
     onChangePassword,    // ({ currentPassword, newPassword }) => Promise<void>
 }) {
     // ---- Avatar ----
     const fileRef = useRef(null);
     const [avatarPreview, setAvatarPreview] = useState(null);
-    const [avatarUrl, setAvatarUrl] = useState(""); // โหลดจากโปรไฟล์จริงได้ภายหลัง
+    const [avatarUrl, setAvatarUrl] = useState("");
     const [avatarLoading, setAvatarLoading] = useState(false);
 
     const pickFile = () => fileRef.current?.click();
-
     const acceptImage = (f) => {
         if (!f) return null;
         if (!f.type?.startsWith("image/")) return "กรุณาเลือกรูปภาพ";
         if (f.size > 2 * 1024 * 1024) return "รูปต้องไม่เกิน 2MB";
         return null;
     };
-
     const handleFile = (f) => {
         const err = acceptImage(f);
         if (err) return alert(err);
         setAvatarPreview(URL.createObjectURL(f));
     };
-
     const onFileChange = (e) => {
         const f = e.target.files?.[0];
         if (f) handleFile(f);
     };
-
     const onDrop = (e) => {
         e.preventDefault();
         const f = e.dataTransfer.files?.[0];
@@ -46,12 +43,20 @@ export default function SettingsPage({
         setAvatarLoading(true);
         try {
             if (onUploadAvatar) {
-                const url = await onUploadAvatar(f); // คุณจะต่อ API จริงเอง
+                const url = await onUploadAvatar(f);
                 setAvatarUrl(url);
             } else {
-                // mock ไม่มี backend
-                await new Promise((r) => setTimeout(r, 800));
-                setAvatarUrl(avatarPreview);
+                // mock
+                const form = new FormData();
+                form.append("avatar", f);
+                const res = await fetch(`${API_BASE}/auth/avatar`, {
+                    method: "POST",
+                    body: form,
+                    credentials: "include",
+                });
+                if (!res.ok) throw new Error((await res.json()).message || "อัปโหลดไม่สำเร็จ");
+                const data = await res.json();
+                setAvatarUrl(data.url);
             }
             setAvatarPreview(null);
             fileRef.current.value = "";
@@ -62,6 +67,21 @@ export default function SettingsPage({
             setAvatarLoading(false);
         }
     };
+
+    // โหลดโปรไฟล์เดิม
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
+                if (!res.ok) return;
+                const json = await res.json();
+                const url = json?.user?.profile_image || "";
+                if (alive) setAvatarUrl(url);
+            } catch { }
+        })();
+        return () => { alive = false; };
+    }, []);
 
     // ---- Password ----
     const [currentPwd, setCurrentPwd] = useState("");
@@ -89,8 +109,13 @@ export default function SettingsPage({
             if (onChangePassword) {
                 await onChangePassword({ currentPassword: currentPwd, newPassword: newPwd });
             } else {
-                // mock ไม่มี backend
-                await new Promise((r) => setTimeout(r, 700));
+                const res = await fetch(`${API_BASE}/auth/change-password`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ currentPassword: currentPwd, newPassword: newPwd }),
+                });
+                if (!res.ok) throw new Error((await res.json()).message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
             }
             setPwdMsg({ type: "success", text: "เปลี่ยนรหัสผ่านสำเร็จ" });
             setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
@@ -98,6 +123,63 @@ export default function SettingsPage({
             setPwdMsg({ type: "error", text: e?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ" });
         } finally {
             setPwdLoading(false);
+        }
+    };
+
+    // ---- Topic (จัดการหัวข้อ) ----
+    const [topics, setTopics] = useState([]);
+    const [loadingTopics, setLoadingTopics] = useState(false);
+
+    const loadTopics = async () => {
+        setLoadingTopics(true);
+        try {
+            const res = await fetch(`${API_BASE}/topics/owned`, {
+                credentials: "include",
+            });
+            if (!res.ok) throw new Error((await res.json()).error || "โหลดหัวข้อไม่สำเร็จ");
+            const data = await res.json();
+            setTopics(data.data || []);
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            setLoadingTopics(false);
+        }
+    };
+
+    useEffect(() => {
+        loadTopics();
+    }, []);
+
+    const handleEdit = async (topic) => {
+        const title = prompt("แก้ไขชื่อหัวข้อ", topic.title);
+        if (title == null) return;
+        const t = title.trim();
+        if (!t) return alert("ห้ามเว้นว่าง");
+        try {
+            const res = await fetch(`${API_BASE}/topics/${topic.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ title: t }),
+            });
+            if (!res.ok) throw new Error((await res.json()).error || "แก้ไขไม่สำเร็จ");
+            await loadTopics();
+        } catch (e) {
+            alert(e.message);
+        }
+    };
+
+    const handleDelete = async (topic) => {
+        if (!confirm(`ลบหัวข้อ “${topic.title}” ?`)) return;
+        try {
+            const res = await fetch(`${API_BASE}/topics/${topic.id}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            if (!res.ok) throw new Error((await res.json()).error || "ลบไม่สำเร็จ");
+            await loadTopics();
+        } catch (e) {
+            alert(e.message);
         }
     };
 
@@ -112,7 +194,7 @@ export default function SettingsPage({
                 <div className={s.avatarRow}>
                     <img
                         className={s.avatar}
-                        src={avatarPreview || avatarUrl || "https://i.pravatar.cc/160?img=5"}
+                        src={avatarPreview || absolutize(avatarUrl) || "/no-image.png"}
                         alt="avatar"
                     />
                     <div className={s.avatarBtns}>
@@ -202,6 +284,46 @@ export default function SettingsPage({
                     )}
                 </form>
                 <p className={s.hint}>อย่างน้อย 8 ตัวอักษร และควรมีตัวเลข 1 ตัวขึ้นไป</p>
+            </section>
+
+            {/* Topics */}
+            <section className={s.card}>
+                <h2 className={s.cardTitle}>จัดการหัวข้อ</h2>
+                {loadingTopics ? (
+                    <p>กำลังโหลด...</p>
+                ) : topics.length === 0 ? (
+                    <p className={s.hint}>ยังไม่มีหัวข้อ</p>
+                ) : (
+                    <ul className={s.list}>
+                        {topics.map((t) => (
+                            <li key={t.id} className={s.item}>
+                                <div className={s.topicLink}>
+                                    <span>{t.title}</span>
+                                    <div className={s.actions}>
+                                        <button
+                                            type="button"
+                                            className={s.actionBtn}
+                                            onClick={() => handleEdit(t)}
+                                            aria-label="แก้ไขรายการ"
+                                            title="แก้ไข"
+                                        >
+                                            ✏️
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={s.actionBtn}
+                                            onClick={() => handleDelete(t)}
+                                            aria-label="ลบรายการ"
+                                            title="ลบ"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </section>
         </div>
     );

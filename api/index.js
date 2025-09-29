@@ -7,6 +7,7 @@ import http from "http";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
 import topicsRouter from "./routes/topics.js";
+import listsRouter from "./routes/lists.js";
 import { requireAuth } from "./middlewares/requireAuth.js";
 
 const app = express();
@@ -28,6 +29,10 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use("/auth", authRoutes);
 
 app.use("/topics", requireAuth, topicsRouter);
+
+app.use("/lists", requireAuth, listsRouter);
+
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);

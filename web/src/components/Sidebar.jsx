@@ -6,33 +6,60 @@ import { FiSettings, FiLogOut, FiHome, FiX } from "react-icons/fi";
 import { MdOutlineChecklist } from "react-icons/md";
 import s from "@/styles/sidebar.module.css";
 import { useMe } from "@/hooks/useMe";
-
-const mockTopics = [
-    { id: 1, name: "ไปเที่ยวญี่ปุ่น" },
-    { id: 2, name: "เรียน React ให้จบ" },
-    { id: 3, name: "ออกกำลังกาย 3 ครั้ง/สัปดาห์" },
-];
+import { useEffect, useState, useCallback } from "react";
+import { API_BASE } from "@/lib/api";
+import { absolutize } from "@/utils/url";
 
 export default function Sidebar({ isOpen = false, isMobile = false, onClose = () => { } }) {
     const pathname = usePathname();
-    const { user, loading } = useMe();
+    const { user, loading: userLoading } = useMe();
+
+    const [topics, setTopics] = useState([]);
+    const [topicsLoading, setTopicsLoading] = useState(false);
 
     const isActive = (href) => pathname === href || pathname?.startsWith(href + "/");
 
-    const onLogout = async () => {
+    // โหลดหัวข้อจริง
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                setTopicsLoading(true);
+                const res = await fetch(`${API_BASE}/topics`, { credentials: "include" });
+                const json = await res.json();
+                if (!alive) return;
+                if (json?.ok && Array.isArray(json.data)) {
+                    setTopics(json.data); // [{id, title, slug, ...}]
+                } else {
+                    setTopics([]);
+                }
+            } catch (e) {
+                console.error("Load topics failed:", e);
+                setTopics([]);
+            } finally {
+                if (alive) setTopicsLoading(false);
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, []);
+
+    const onLogout = useCallback(async () => {
         if (!confirm("ต้องการออกจากระบบใช่ไหม?")) return;
         try {
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+            await fetch(`${API_BASE}/auth/logout`, {
                 method: "POST",
                 credentials: "include",
             });
         } catch { }
         window.location.href = "/login";
-    };
+    }, []);
 
     const avatarSrc =
-        user?.profile_image ||
-        "no-image.png";
+        user && typeof user.profile_image === "string" && user.profile_image.trim().length > 0
+            ? absolutize(user.profile_image.trim())
+            : "/no-image.png";
 
     return (
         <>
@@ -44,33 +71,32 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
             <aside
                 id="sidebar"
                 className={`${s.sidebar} ${isMobile && isOpen ? s.open : ""}`}
-                inert={isMobile && !isOpen}
+                aria-hidden={isMobile && !isOpen}
+                {...(isMobile && !isOpen ? { inert: true } : {})}
                 role="navigation"
                 aria-label="Sidebar"
             >
                 {isMobile && isOpen && (
-                    <button className={s.closeBtn} onClick={onClose} aria-label="ปิดเมนู">
+                    <button className={s.closeBtn} onClick={onClose} aria-label="ปิดเมนู" type="button">
                         <FiX />
                     </button>
                 )}
 
                 {/* Profile */}
                 <div className={s.profile}>
-                    <img src={avatarSrc} alt="โปรไฟล์" className={s.avatar} />
+                    <img src={avatarSrc} alt="โปรไฟล์" className={s.avatar} loading="lazy" />
                     <div>
-                        {loading ? (
-                            <>
-                                <div className={s.name}>กำลังโหลด…</div>
-                            </>
+                        {userLoading ? (
+                            <div className={s.name}>กำลังโหลด…</div>
                         ) : user ? (
-                            <>
-                                <div className={s.name}>{user.username}</div>
-                            </>
+                            <div className={s.name}>{user.username}</div>
                         ) : (
                             <>
                                 <div className={s.name}>ผู้เยี่ยมชม</div>
                                 <div className={s.email}>
-                                    <Link href="/login" className={s.link}>เข้าสู่ระบบ</Link>
+                                    <Link href="/login" className={s.link}>
+                                        เข้าสู่ระบบ
+                                    </Link>
                                 </div>
                             </>
                         )}
@@ -90,20 +116,40 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
                     <MdOutlineChecklist />
                     <span>หัวข้อของฉัน</span>
                 </div>
+
                 <ul className={s.topicList}>
-                    {mockTopics.map((t) => (
-                        <li key={t.id}>
-                            <Link
-                                href={`/home/${t.id}`}
-                                className={`${s.topicItem} ${isActive(`/home/${t.id}`) ? s.activeTopic : ""}`}
-                                onClick={onClose}
-                                title={t.name}
-                            >
-                                <span className={s.dot} />
-                                <span className={s.ellipsis}>{t.name}</span>
-                            </Link>
-                        </li>
-                    ))}
+                    {topicsLoading && (
+                        <>
+                            <li className={s.topicSkeleton} />
+                            <li className={s.topicSkeleton} />
+                            <li className={s.topicSkeleton} />
+                        </>
+                    )}
+
+                    {!topicsLoading && topics.length === 0 && (
+                        <li className={s.topicEmpty}>ยังไม่มีหัวข้อ</li>
+                    )}
+
+                    {!topicsLoading &&
+                        topics.map((t) => {
+                            // รองรับกรณีไม่มี slug (fallback เป็น id)
+                            const slug = t.slug || t.id;
+                            const title = t.title || t.name || "Untitled";
+                            const href = `/home/${slug}`;
+                            return (
+                                <li key={t.id}>
+                                    <Link
+                                        href={href}
+                                        className={`${s.topicItem} ${isActive(href) ? s.activeTopic : ""}`}
+                                        onClick={onClose}
+                                        title={title}
+                                    >
+                                        <span className={s.dot} />
+                                        <span className={s.ellipsis}>{title}</span>
+                                    </Link>
+                                </li>
+                            );
+                        })}
                 </ul>
 
                 {/* Bottom actions */}
@@ -112,7 +158,7 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
                         <FiSettings />
                         <span>Settings</span>
                     </Link>
-                    <button className={s.bottomBtn} onClick={onLogout}>
+                    <button className={s.bottomBtn} onClick={onLogout} type="button">
                         <FiLogOut />
                         <span>Logout</span>
                     </button>
