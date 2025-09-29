@@ -6,6 +6,7 @@ import { FaPlus, FaCheck } from "react-icons/fa";
 import { MdOutlineChecklist } from "react-icons/md";
 import styles from "@/styles/topic.module.css";
 import { API_BASE } from "@/lib/api";
+import { absolutize } from "@/utils/url";
 
 export default function TopicPage() {
     const { slug } = useParams();
@@ -14,6 +15,96 @@ export default function TopicPage() {
     const [loading, setLoading] = useState(false);
     const [topic, setTopic] = useState(null);
     const [editMode, setEditMode] = useState(false);
+    const [invites, setInvites] = useState([]); // tokens list
+    const [members, setMembers] = useState([]);
+    const [isOwner, setIsOwner] = useState(false);
+
+    // โหลด topic + me แล้วคำนวณว่าเป็น owner ไหม
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const [resTopic, resMe] = await Promise.all([
+                    fetch(`${API_BASE}/topics/${slug}`, { credentials: "include" }),
+                    fetch(`${API_BASE}/auth/me`, { credentials: "include" }),
+                ]);
+
+                if (resTopic.status === 401 || resMe.status === 401) {
+                    window.location.href = "/login?next=/home/" + slug;
+                    return;
+                }
+
+                const [jTopic, jMe] = await Promise.all([resTopic.json(), resMe.json()]);
+
+                if (alive && jTopic?.ok) setTopic(jTopic.data);
+                if (alive && jTopic?.ok && jMe?.user) {
+                    // ปรับคีย์ด้านล่างให้ตรงกับสคีมาจริง เช่น owner_id หรือ created_by
+                    const ownerId = jTopic.data.owner_id ?? jTopic.data.created_by;
+                    setIsOwner(jMe.user.id === ownerId);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        })();
+        return () => { alive = false; };
+    }, [slug]);
+
+    // โหลด members เสมอ และโหลด invites เฉพาะเมื่อเป็น owner เท่านั้น
+    useEffect(() => {
+        (async () => {
+            try {
+                // members: ให้ทุกคนเห็น
+                const resMembers = await fetch(`${API_BASE}/topics/${slug}/members`, { credentials: "include" });
+                const jm = await resMembers.json();
+                if (jm.ok) setMembers(jm.data);
+
+                // invites: owner เท่านั้น
+                if (isOwner) {
+                    const resInv = await fetch(`${API_BASE}/topics/${slug}/invites`, { credentials: "include" });
+                    if (resInv.ok) {
+                        const ji = await resInv.json();
+                        if (ji.ok) setInvites(ji.data);
+                    }
+                } else {
+                    // เผื่อเดิมเคยค้างค่าอยู่
+                    setInvites([]);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        })();
+    }, [slug, isOwner]);
+
+    // ปุ่มสร้างลิงก์: กันพลาดเช็คอีกชั้น
+    const createInvite = async () => {
+        if (!isOwner) {
+            return Swal.fire({ icon: "error", title: "คุณไม่ใช่เจ้าของหัวข้อนี้" });
+        }
+        try {
+            const res = await fetch(`${API_BASE}/topics/${slug}/invites`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ maxUses: 1, expiresInDays: 1 }),
+            });
+            if (res.status === 401) return (window.location.href = "/login?next=/home/" + slug);
+            if (res.status === 403) return Swal.fire({ icon: "error", title: "เฉพาะเจ้าของหัวข้อเท่านั้น" });
+
+            const json = await res.json();
+            if (!json.ok) return Swal.fire({ icon: "error", title: "สร้างลิงก์ไม่สำเร็จ" });
+
+            await navigator.clipboard.writeText(json.data.invite_url);
+            Swal.fire({ icon: "success", title: "คัดลอกลิงก์เชิญแล้ว", text: "ลิงก์นี้ใช้ได้ 1 คน / 24 ชม.", confirmButtonColor: "#8b5cf6" });
+
+            // refresh เฉพาะ owner
+            const r2 = await fetch(`${API_BASE}/topics/${slug}/invites`, { credentials: "include" });
+            const j2 = await r2.json();
+            if (j2.ok) setInvites(j2.data);
+        } catch (e) {
+            console.error(e);
+            Swal.fire({ icon: "error", title: "สร้างลิงก์ไม่สำเร็จ" });
+        }
+    };
 
     // โหลด lists ของหัวข้อนี้
     useEffect(() => {
@@ -174,35 +265,6 @@ export default function TopicPage() {
         }
     };
 
-    const handleDelete = async (index) => {
-        const item = lists[index];
-        const confirm = await Swal.fire({
-            title: "ลบรายการ?",
-            text: item.text,
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "ลบ",
-            confirmButtonColor: "#ef4444",
-            cancelButtonText: "ยกเลิก",
-        });
-        if (!confirm.isConfirmed) return;
-
-        try {
-            const res = await fetch(`${API_BASE}/lists/${item.id}`, {
-                method: "DELETE",
-                credentials: "include",
-            });
-            const json = await res.json();
-            if (json.ok) {
-                setLists(prev => prev.filter((_, i) => i !== index));
-            } else {
-                Swal.fire({ icon: "error", title: "ลบไม่สำเร็จ" });
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
-
     if (!topic) return <h1 className={styles.title}>กำลังโหลด...</h1>;
 
     return (
@@ -225,13 +287,27 @@ export default function TopicPage() {
             {/* Invite Friends */}
             <section className={styles.box}>
                 <h2 className={styles.boxTitle}>เชิญเพื่อน</h2>
+
+                {/* สมาชิก */}
                 <div className={styles.inviteRow}>
                     <div className={styles.avatars}>
-                        <img src="https://i.pravatar.cc/40?img=1" alt="friend1" />
-                        <img src="https://i.pravatar.cc/40?img=2" alt="friend2" />
-                        <img src="https://i.pravatar.cc/40?img=3" alt="friend3" />
+                        {members.slice(0, 5).map(m => (
+                            <img
+                                key={m.id}
+                                src={absolutize(m.profile_image) || `https://i.pravatar.cc/40?u=${m.id}`}
+                                alt={m.username}
+                                title={m.username}
+                            />
+                        ))}
+                        {members.length > 5 && <span className={styles.more}>+{members.length - 5}</span>}
                     </div>
-                    <button className={styles.inviteBtn}>➕ เชิญเพื่อน</button>
+
+                    {/* ปุ่มสร้างลิงก์: แสดงเฉพาะ owner */}
+                    {isOwner && (
+                        <button onClick={createInvite} className={styles.inviteBtn}>
+                            ➕ สร้างลิงก์เชิญ
+                        </button>
+                    )}
                 </div>
             </section>
 

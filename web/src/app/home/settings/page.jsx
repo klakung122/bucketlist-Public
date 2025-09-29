@@ -14,6 +14,7 @@ export default function SettingsPage({
     const [avatarPreview, setAvatarPreview] = useState(null);
     const [avatarUrl, setAvatarUrl] = useState("");
     const [avatarLoading, setAvatarLoading] = useState(false);
+    const [me, setMe] = useState(null);
 
     const pickFile = () => fileRef.current?.click();
     const acceptImage = (f) => {
@@ -76,8 +77,9 @@ export default function SettingsPage({
                 const res = await fetch(`${API_BASE}/auth/me`, { credentials: "include" });
                 if (!res.ok) return;
                 const json = await res.json();
-                const url = json?.user?.profile_image || "";
-                if (alive) setAvatarUrl(url);
+                if (!alive) return;
+                setMe(json?.user || null);
+                setAvatarUrl(json?.user?.profile_image || "");
             } catch { }
         })();
         return () => { alive = false; };
@@ -194,7 +196,12 @@ export default function SettingsPage({
                 <div className={s.avatarRow}>
                     <img
                         className={s.avatar}
-                        src={avatarPreview || absolutize(avatarUrl) || "/no-image.png"}
+                        src={
+                            avatarPreview
+                            || (avatarUrl ? absolutize(avatarUrl) : null)
+                            || (me ? `https://i.pravatar.cc/120?u=${encodeURIComponent(me.id)}` : null)
+                            || "/no-image.png"
+                        }
                         alt="avatar"
                     />
                     <div className={s.avatarBtns}>

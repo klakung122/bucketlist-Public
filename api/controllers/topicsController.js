@@ -1,5 +1,6 @@
 // api/controllers/topicsController.js
 import pool from "../db.js";
+import { listMembersByTopicSlug } from "../services/member.js";
 
 function slugify(text) {
     return text
@@ -155,27 +156,46 @@ async function requireMemberBySlug(conn, userId, slug) {
     return { topicId: topic.id };
 }
 
-// controllers/topicsController.js
 export async function getTopicBySlug(req, res) {
     const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    if (!userId) {
+        return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    }
 
     const conn = await pool.getConnection();
     try {
         const check = await requireMemberBySlug(conn, userId, req.params.slug);
-        if (check.error === "TOPIC_NOT_FOUND")
+
+        if (check.error === "TOPIC_NOT_FOUND") {
             return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-        if (check.error === "FORBIDDEN")
+        }
+        if (check.error === "FORBIDDEN") {
             return res.status(403).json({ ok: false, error: "FORBIDDEN" });
+        }
 
         const [[row]] = await conn.query(
-            "SELECT id, title, slug FROM topics WHERE id = ? LIMIT 1",
+            `SELECT id, title, slug, owner_id
+       FROM topics
+       WHERE id = ?
+       LIMIT 1`,
             [check.topicId]
         );
-        res.json({ ok: true, data: row });
+
+        // เผื่อเคสหาไม่เจอหลังเช็ค member (แทบไม่เกิด แต่กันไว้)
+        if (!row) {
+            return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+        }
+
+        const is_owner = String(row.owner_id) === String(userId);
+
+        // ✅ ส่งครั้งเดียว แล้ว return ออกให้ชัด
+        return res.json({ ok: true, data: { ...row, is_owner } });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+        // กัน double-send: ถ้าส่งไปแล้วอย่าพยายามส่งอีก
+        if (!res.headersSent) {
+            return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+        }
     } finally {
         conn.release();
     }
@@ -335,4 +355,11 @@ export async function deleteTopicOwnerOnly(req, res) {
     } finally {
         conn.release();
     }
+}
+
+export async function listTopicMembers(req, res) {
+    const { slug } = req.params;
+    const data = await listMembersByTopicSlug(slug);
+    if (!data) return res.status(404).json({ ok: false });
+    return res.json({ ok: true, data: data.members });
 }

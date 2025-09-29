@@ -10,6 +10,12 @@ import { useEffect, useState, useCallback } from "react";
 import { API_BASE } from "@/lib/api";
 import { absolutize } from "@/utils/url";
 
+const buildPravatar = (user) => {
+    if (!user) return null;
+    const seed = user.id || user.email || user.username || "guest";
+    return `https://i.pravatar.cc/80?u=${encodeURIComponent(seed)}`;
+};
+
 export default function Sidebar({ isOpen = false, isMobile = false, onClose = () => { } }) {
     const pathname = usePathname();
     const { user, loading: userLoading } = useMe();
@@ -56,10 +62,13 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
         window.location.href = "/login";
     }, []);
 
-    const avatarSrc =
-        user && typeof user.profile_image === "string" && user.profile_image.trim().length > 0
+    const pravatar = buildPravatar(user);
+
+    const avatarSrc = userLoading
+        ? "/no-image.png"
+        : (user?.profile_image?.trim()
             ? absolutize(user.profile_image.trim())
-            : "/no-image.png";
+            : (pravatar || "/no-image.png"));
 
     return (
         <>

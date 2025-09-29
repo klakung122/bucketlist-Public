@@ -8,13 +8,16 @@ import {
     createListByTopicSlug,
     listOwnedTopics,
     updateTopicTitleOwnerOnly,
-    deleteTopicOwnerOnly
+    deleteTopicOwnerOnly,
+    listTopicMembers
 } from "../controllers/topicsController.js";
+import { requireAuth } from "../middlewares/requireAuth.js";
 
 const router = Router();
 
 router.get("/", listTopics);
 router.get("/owned", listOwnedTopics);
+router.get("/:slug/members", requireAuth, listTopicMembers);
 router.post("/", createTopic);
 router.get("/:slug", getTopicBySlug);
 router.get("/:slug/lists", listListsByTopicSlug);

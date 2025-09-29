@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
 import topicsRouter from "./routes/topics.js";
 import listsRouter from "./routes/lists.js";
+import inviteRoutes from "./routes/invites.js";
 import { requireAuth } from "./middlewares/requireAuth.js";
 
 const app = express();
@@ -29,6 +30,8 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use("/auth", authRoutes);
 
 app.use("/topics", requireAuth, topicsRouter);
+
+app.use(inviteRoutes);
 
 app.use("/lists", requireAuth, listsRouter);
 
