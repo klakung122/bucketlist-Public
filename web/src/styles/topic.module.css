@@ -55,13 +55,13 @@
 /* ปุ่มเพิ่ม */
 .addBtn {
     flex: 1;
-    /* ให้ปุ่มขยายเท่า ๆ กัน */
     background: linear-gradient(90deg, #60a5fa, #a78bfa, #f9a8d4);
     border: none;
     border-radius: 12px;
     color: #fff;
-    font-weight: 700;
-    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 12px 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -398,4 +398,186 @@
 
 .avatarRemove:hover {
     filter: brightness(0.95);
+}
+
+.topicDescription {
+    margin: 6px 0 10px;
+    color: #6b7280;
+    /* เทา slate */
+    font-size: 0.95rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    /* รองรับขึ้นบรรทัดจากผู้ใช้ */
+}
+
+/* ===== Overlay & Card (ตามชุดเดิม) ===== */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    display: grid;
+    place-items: center;
+    z-index: 50;
+    padding: 16px;
+    backdrop-filter: saturate(120%) blur(2px);
+}
+
+.modal {
+    position: relative;
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px 20px 16px;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, .18),
+        0 2px 10px rgba(0, 0, 0, .08);
+    animation: modalIn .16s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        transform: translateY(6px) scale(.98);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* ===== Header / Close (ให้หน้าตาเหมือนปุ่มปิดเดิม) ===== */
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0 10px;
+    /* ระยะเดียวกับ .modalTitle เดิม */
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    /* ให้เท่ากับ .modalTitle */
+}
+
+.modalClose {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #111827;
+    font-size: 18px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.modalClose:hover {
+    background: #e5e7eb;
+}
+
+.modalClose:active {
+    transform: scale(.96);
+}
+
+/* ===== Body ===== */
+.modalBody {
+    /* ช่องไฟเดียวกับการวาง content ใน .modal */
+    margin-top: 10px;
+}
+
+/* ===== Form Elements (เหมือน input/textarea เดิม) ===== */
+.label {
+    display: block;
+    font-size: 0.9rem;
+    color: #374151;
+    margin: 2px 0 8px;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    outline: none;
+    font-size: 0.95rem;
+}
+
+.input:focus {
+    border-color: #a78bfa;
+    /* ไลลาอ่อน */
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, .25);
+}
+
+.textarea {
+    width: 100%;
+    min-height: 90px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    outline: none;
+    font-size: 0.95rem;
+    resize: vertical;
+    /* ยืดเฉพาะแนวตั้ง */
+    line-height: 1.4;
+}
+
+.textarea:focus {
+    border-color: #a78bfa;
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, .25);
+}
+
+/* ===== Actions / Confirm ===== */
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.confirmBtn {
+    /* ยืมปุ่มเดิมมาใช้ */
+    padding: 10px 14px;
+    border: 0;
+    width: 100%;
+    border-radius: 10px;
+    background: #8b5cf6;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.confirmBtn:hover {
+    filter: brightness(1.05);
+}
+
+.confirmBtn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* topic.module.css */
+.textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    resize: vertical;
+    background: #fff;
+}
+
+.listDescription {
+    margin: 6px 0 0 36px;
+    /* เยื้องใต้ชื่อให้ตรงกับจุดวงกลม */
+    font-size: 0.9rem;
+    color: #6b7280;
+    white-space: pre-wrap;
 }

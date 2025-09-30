@@ -19,6 +19,9 @@ export default function TopicPage() {
     const [members, setMembers] = useState([]);
     const [isOwner, setIsOwner] = useState(false);
     const [showMembers, setShowMembers] = useState(false);
+    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [newListTitle, setNewListTitle] = useState("");
+    const [newListDesc, setNewListDesc] = useState("");
 
     // โหลด topic + me แล้วคำนวณว่าเป็น owner ไหม
     useEffect(() => {
@@ -122,6 +125,7 @@ export default function TopicPage() {
                     const mapped = json.data.map(r => ({
                         id: r.id,
                         text: r.title,
+                        description: r.description ?? "",
                         done: r.status === "archived",
                     }));
                     setLists(mapped);
@@ -133,26 +137,9 @@ export default function TopicPage() {
         return () => { alive = false; };
     }, [slug]);
 
-    const addList = useCallback(async () => {
-        const { value } = await Swal.fire({
-            title: "เพิ่มลิสต์ใหม่",
-            input: "text",
-            inputLabel: "พิมพ์ชื่อรายการ",
-            inputPlaceholder: "เช่น จัดกระเป๋า / ทำวีซ่า",
-            confirmButtonText: "เพิ่ม",
-            confirmButtonColor: "#8b5cf6",
-            allowOutsideClick: true,
-            showCancelButton: false,
-            preConfirm: (val) => {
-                if (!val || !val.trim()) {
-                    Swal.showValidationMessage("กรุณากรอกชื่อรายการ");
-                    return false;
-                }
-                return val.trim();
-            },
-            didOpen: () => setTimeout(() => Swal.getInput()?.focus(), 0),
-        });
-        if (!value) return;
+    const handleCreateList = useCallback(async () => {
+        const title = newListTitle.trim();
+        if (!title) return;
 
         setLoading(true);
         try {
@@ -160,10 +147,13 @@ export default function TopicPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({ title: value }),
+                body: JSON.stringify({ title, description: newListDesc || null }),
             });
-            if (res.status === 401) return window.location.href = "/login?next=/home/" + slug;
-            if (res.status === 403) return Swal.fire({ icon: "error", title: "ไม่มีสิทธิ์" });
+            if (res.status === 401) return (window.location.href = "/login?next=/home/" + slug);
+            if (res.status === 403) {
+                setLoading(false);
+                return Swal.fire({ icon: "error", title: "ไม่มีสิทธิ์" }); // หรือจะแจ้งใน UI เองก็ได้
+            }
             const json = await res.json();
 
             if (!json.ok) {
@@ -176,17 +166,21 @@ export default function TopicPage() {
                 return;
             }
 
-            setLists(prev => [{ id: json.data.id, text: json.data.title, done: false }, ...prev]);
-            Swal.fire({
-                toast: true, position: "top-end", icon: "success",
-                title: "เพิ่มลิสต์แล้ว", showConfirmButton: false, timer: 1400, timerProgressBar: true,
-            });
+            setLists(prev => [{
+                id: json.data.id,
+                text: json.data.title,
+                description: json.data.description ?? newListDesc ?? "",
+                done: false
+            }, ...prev]);
+            setIsAddOpen(false);
+            setNewListTitle("");
+            setNewListDesc("");
         } catch (e) {
             console.error(e);
         } finally {
             setLoading(false);
         }
-    }, [slug]);
+    }, [slug, newListTitle, newListDesc]);
 
     const toggleDone = useCallback(async (index) => {
         const item = lists[index];
@@ -321,6 +315,14 @@ export default function TopicPage() {
         }
     };
 
+    const handleCloseAdd = useCallback(() => {
+        if (!loading) {
+            setIsAddOpen(false);
+            setNewListTitle("");
+            setNewListDesc(""); // ล้าง desc ด้วย (แถม)
+        }
+    }, [loading]);
+
     if (!topic) return <h1 className={styles.title}>กำลังโหลด...</h1>;
 
     return (
@@ -334,8 +336,13 @@ export default function TopicPage() {
             <section className={styles.box}>
                 <h2 className={styles.boxTitle}>จัดการลิสต์</h2>
                 <div className={styles.actionGroup}>
-                    <button type="button" className={styles.addBtn} onClick={addList} disabled={loading}>
-                        <FaPlus /> เพิ่ม
+                    <button
+                        type="button"
+                        className={styles.addBtn}
+                        onClick={() => setIsAddOpen(true)}
+                        disabled={loading}
+                    >
+                        <FaPlus /> เพิ่มลิสต์
                     </button>
                 </div>
             </section>
@@ -401,6 +408,10 @@ export default function TopicPage() {
                     </button>
                 </div>
 
+                {topic?.description && (
+                    <p className={styles.topicDescription}>{topic.description}</p>
+                )}
+
                 {lists.length === 0 ? (
                     <p className={styles.empty}>ยังไม่มีลิสต์ ✨</p>
                 ) : (
@@ -454,7 +465,135 @@ export default function TopicPage() {
                 ownerId={topic?.owner_id ?? topic?.created_by}
                 onRemoveMember={removeMember}
             />
+
+            <AddListModal
+                open={isAddOpen}
+                onClose={() => { if (!loading) { setIsAddOpen(false); setNewListTitle(""); } }}
+                value={newListTitle}
+                onChange={setNewListTitle}
+                onSubmit={handleCreateList}
+                descValue={newListDesc}
+                onDescChange={setNewListDesc}
+                loading={loading}
+            />
         </div>
+    );
+}
+
+function AddListModal({ open, onClose, value, onChange, descValue, onDescChange, onSubmit, loading }) {
+    const inputRef = useRef(null);
+    const overlayRef = useRef(null);
+    const closeBtnRef = useRef(null);
+    const dialogId = "add-list-title";
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+        document.addEventListener("keydown", onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        queueMicrotask(() => inputRef.current?.focus());
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prev;
+        };
+    }, [open]);
+
+    if (!open) return null;
+
+    return (
+        <div
+            ref={overlayRef}
+            className={styles.modalOverlay}
+            onClick={() => !loading && onClose?.()}
+            aria-hidden={!open}
+        >
+            <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogId}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                    if (e.key === "Tab") {
+                        // trap โฟกัสแบบง่าย
+                        const focusables = Array.from(
+                            e.currentTarget.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+                        ).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+                        if (focusables.length === 0) return;
+                        const first = focusables[0];
+                        const last = focusables[focusables.length - 1];
+                        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                        return;
+                    }
+                }}
+            >
+                <div className={styles.modalHeader}>
+                    <h3 id={dialogId}>เพิ่มลิสต์ใหม่</h3>
+                    <button
+                        type="button"
+                        className={styles.modalClose}
+                        onClick={() => !loading && onClose?.()}
+                        aria-label="ปิดหน้าต่าง"
+                        title="ปิด"
+                        ref={closeBtnRef}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <form
+                    className={styles.modalBody}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!loading && value.trim()) onSubmit?.();
+                    }}
+                    onKeyDown={(e) => {
+                        // ช็อตคัตส่งด้วย Ctrl/Cmd+Enter เท่านั้น (ไม่บังคับจะลบทิ้งได้)
+                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                            e.preventDefault();
+                            if (!loading && value.trim()) onSubmit?.();
+                        }
+                    }}
+                >
+                    <label className={styles.label} htmlFor="list-title">ชื่อรายการ</label>
+                    <input
+                        id="list-title"
+                        ref={inputRef}
+                        className={styles.input}
+                        type="text"
+                        placeholder="เช่น จัดกระเป๋า / ทำวีซ่า"
+                        value={value}
+                        onChange={(e) => onChange?.(e.target.value)}
+                        disabled={loading}
+                        autoComplete="off"
+                        spellCheck={false}
+                    />
+
+                    <label className={styles.label} htmlFor="list-desc" style={{ marginTop: 12 }}>คำอธิบาย (ไม่บังคับ)</label>
+                    <textarea
+                        id="list-desc"
+                        className={styles.textarea}
+                        placeholder="รายละเอียดเพิ่มเติม เช่น เอกสารที่ต้องเตรียม สิ่งที่ต้องเช็ค"
+                        value={descValue}
+                        onChange={(e) => onDescChange?.(e.target.value)}
+                        disabled={loading}
+                        rows={3}
+                    />
+
+                    <div className={styles.modalActions}>
+                        <button
+                            type="submit"
+                            className={styles.confirmBtn}
+                            disabled={!value.trim() || loading}
+                        >
+                            {loading ? "กำลังเพิ่ม..." : "เพิ่มรายการ"}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div >
     );
 }
 

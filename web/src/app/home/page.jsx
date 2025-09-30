@@ -9,6 +9,7 @@ export default function HomePage() {
     const [topics, setTopics] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const [newTopic, setNewTopic] = useState("");
+    const [newDesc, setNewDesc] = useState("");
     const [loading, setLoading] = useState(false);
     const inputRef = useRef(null);
 
@@ -39,11 +40,13 @@ export default function HomePage() {
     const closeModal = useCallback(() => {
         setIsOpen(false);
         setNewTopic("");
+        setNewDesc("");
         setLoading(false);
     }, []);
 
     const handleAdd = useCallback(async () => {
         const title = newTopic.trim();
+        const description = newDesc.trim();   // ตัดช่องว่าง
         if (!title) return;
 
         setLoading(true);
@@ -52,24 +55,21 @@ export default function HomePage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
-                body: JSON.stringify({ title }),
+                body: JSON.stringify({ title, description: description || null }), // ส่ง null ถ้าว่าง
             });
             const json = await res.json();
-
             if (!json.ok) {
                 console.error(json);
                 setLoading(false);
                 return;
             }
-
-            // อัปเดต UI จากผลลัพธ์จริง
             setTopics(prev => [json.data, ...prev]);
             closeModal();
         } catch (e) {
             console.error(e);
             setLoading(false);
         }
-    }, [newTopic, closeModal]);
+    }, [newTopic, newDesc, closeModal]); // << เพิ่ม newDesc
 
     const onKeyDown = (e) => {
         if (e.key === "Enter") {
@@ -138,6 +138,14 @@ export default function HomePage() {
                             autoComplete="off"
                             spellCheck={false}
                             autoFocus
+                            disabled={loading}
+                        />
+
+                        <textarea
+                            value={newDesc}
+                            onChange={(e) => setNewDesc(e.target.value)}
+                            placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"
+                            className={styles.textarea}
                             disabled={loading}
                         />
 

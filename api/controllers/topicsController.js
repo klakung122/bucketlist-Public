@@ -75,17 +75,20 @@ export async function listTopics(req, res) {
 // owner_id ควรมาจาก auth middleware (JWT) แต่เดโมนี้จะ mock เป็น 1
 export async function createTopic(req, res) {
     const { title, description } = req.body || {};
-    const ownerId = req.user?.id || 1; // TODO: ใช้ค่าจริงจาก JWT
+    const ownerId = req.user?.id || 1;
 
     if (!title || !title.trim()) {
         return res.status(400).json({ ok: false, error: "TITLE_REQUIRED" });
     }
 
+    const desc = (typeof description === "string" && description.trim().length > 0)
+        ? description.trim()
+        : null;
+
     const conn = await pool.getConnection();
     try {
         await conn.beginTransaction();
 
-        // --- หา username (เหมือนเดิม) ---
         let username = req.user?.username;
         if (!username) {
             const [urows] = await conn.query(
@@ -95,7 +98,6 @@ export async function createTopic(req, res) {
             username = urows?.[0]?.username || "user";
         }
 
-        // --- สร้าง slug (เหมือนเดิม) ---
         const usernameSlug = slugify(username);
         const shuffled = shuffleString(usernameSlug || "user");
         const token = randomBase62(8);
@@ -103,20 +105,16 @@ export async function createTopic(req, res) {
         const baseCapped = base.slice(0, 64);
         const uniqueSlug = await ensureUniqueSlug(baseCapped, conn);
 
-        // --- INSERT topics ---
         const [result] = await conn.query(
             `INSERT INTO topics (title, description, owner_id, slug)
        VALUES (?, ?, ?, ?)`,
-            [title.trim(), description ?? null, ownerId, uniqueSlug]
+            [title.trim(), desc, ownerId, uniqueSlug]
         );
 
         const topicId = result.insertId;
 
-        // --- INSERT topic_members: ใส่เจ้าของเป็นสมาชิกทันที ---
-        // PK (topic_id, user_id) ช่วยกันซ้ำให้เอง
         await conn.query(
-            `INSERT INTO topic_members (topic_id, user_id)
-       VALUES (?, ?)`,
+            `INSERT INTO topic_members (topic_id, user_id) VALUES (?, ?)`,
             [topicId, ownerId]
         );
 
@@ -124,7 +122,12 @@ export async function createTopic(req, res) {
 
         return res.status(201).json({
             ok: true,
-            data: { id: topicId, title: title.trim(), slug: uniqueSlug },
+            data: {
+                id: topicId,
+                title: title.trim(),
+                description: desc,   // ส่งค่าที่ normalize แล้วกลับไป
+                slug: uniqueSlug,
+            },
         });
     } catch (err) {
         await conn.rollback();
@@ -174,10 +177,10 @@ export async function getTopicBySlug(req, res) {
         }
 
         const [[row]] = await conn.query(
-            `SELECT id, title, slug, owner_id
-       FROM topics
-       WHERE id = ?
-       LIMIT 1`,
+            `SELECT id, title, slug, owner_id, description
+   FROM topics
+   WHERE id = ?
+   LIMIT 1`,
             [check.topicId]
         );
 
