@@ -468,7 +468,7 @@ export default function TopicPage() {
 
             <AddListModal
                 open={isAddOpen}
-                onClose={() => { if (!loading) { setIsAddOpen(false); setNewListTitle(""); } }}
+                onClose={handleCloseAdd}
                 value={newListTitle}
                 onChange={setNewListTitle}
                 onSubmit={handleCreateList}
