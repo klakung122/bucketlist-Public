@@ -363,3 +363,71 @@ export async function listTopicMembers(req, res) {
     if (!data) return res.status(404).json({ ok: false });
     return res.json({ ok: true, data: data.members });
 }
+
+export async function removeTopicMember(req, res) {
+    try {
+        const { slug, userId } = req.params;
+        const requesterId = req.user?.id;
+        if (!requesterId) {
+            return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+        }
+
+        // ── หา topic + owner ──────────────────────────────────────────────────────
+        const [rowsTopic] = await pool.execute(
+            "SELECT id, owner_id FROM topics WHERE slug = ? LIMIT 1",
+            [slug]
+        );
+        if (rowsTopic.length === 0) {
+            return res.status(404).json({ ok: false, error: "TOPIC_NOT_FOUND" });
+        }
+        const topicId = rowsTopic[0].id;
+        const ownerId = rowsTopic[0].owner_id;
+
+        // ── ระบุเป้าหมายที่จะลบ (รองรับ 'me') ───────────────────────────────────
+        const targetId = userId === "me" ? requesterId : Number.parseInt(userId, 10);
+        if (!Number.isInteger(targetId)) {
+            return res.status(400).json({ ok: false, error: "INVALID_USER_ID" });
+        }
+
+        // ── ห้ามลบเจ้าของหัวข้อ ─────────────────────────────────────────────────
+        if (targetId === ownerId) {
+            return res.status(400).json({ ok: false, error: "CANNOT_REMOVE_OWNER" });
+        }
+
+        // ── ตรวจสิทธิ์: owner ลบใครก็ได้ (ยกเว้น owner) / ไม่ใช่ owner ลบได้เฉพาะตัวเอง ─
+        const isOwner = requesterId === ownerId;
+        const isSelfRemoval = requesterId === targetId;
+        if (!isOwner && !isSelfRemoval) {
+            return res.status(403).json({ ok: false, error: "FORBIDDEN" });
+        }
+
+        // ── ต้องมีความเป็นสมาชิกอยู่จริงก่อน ───────────────────────────────────
+        const [rowsMember] = await pool.execute(
+            "SELECT 1 FROM topic_members WHERE topic_id = ? AND user_id = ? LIMIT 1",
+            [topicId, targetId]
+        );
+        if (rowsMember.length === 0) {
+            return res.status(404).json({ ok: false, error: "MEMBER_NOT_FOUND" });
+        }
+
+        // ── ลบสมาชิกออกจากหัวข้อ ────────────────────────────────────────────────
+        await pool.execute(
+            "DELETE FROM topic_members WHERE topic_id = ? AND user_id = ?",
+            [topicId, targetId]
+        );
+
+        // แนะนำ: 204 ไม่มีบอดี้ (หรือจะคืน json ก็ได้)
+        return res.status(204).end();
+        // หรือ:
+        // return res.json({ ok: true, data: { topic_id: topicId, user_id: targetId } });
+    } catch (err) {
+        console.error("[removeTopicMember] error:", {
+            code: err.code,
+            errno: err.errno,
+            sqlState: err.sqlState,
+            sqlMessage: err.sqlMessage,
+            message: err.message,
+        });
+        return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+}

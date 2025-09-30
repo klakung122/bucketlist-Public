@@ -244,3 +244,158 @@
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
 }
+
+/* ----- Modal Overlay ----- */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 15, 20, 0.55);
+    backdrop-filter: blur(2px);
+    display: grid;
+    place-items: center;
+    z-index: 1000;
+}
+
+/* ----- Modal Box ----- */
+.modal {
+    width: min(720px, 92vw);
+    max-height: min(80vh, 780px);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f5;
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.modalClose {
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.modalClose:hover {
+    background: #f6f6fa;
+}
+
+/* ----- Modal Body ----- */
+.modalBody {
+    padding: 16px;
+    overflow: auto;
+}
+
+/* ----- Members Grid ----- */
+.membersGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 14px;
+}
+
+.avatarItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+
+.avatarImgLg {
+    width: 68px;
+    height: 68px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 2px solid #eee;
+}
+
+.avatarName {
+    font-size: 0.82rem;
+    color: #333;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Optional: ให้ .avatars ที่กดได้ดูเป็นปุ่ม */
+.avatars {
+    cursor: pointer;
+}
+
+/* หุ้มรูปเล็กในแถว avatars */
+.avatarThumb {
+    position: relative;
+    display: inline-block;
+}
+
+/* ปุ่มลบบนรูปเล็ก (แถวบน) */
+.avatarRemoveSm {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: none;
+    background: #ef4444;
+    color: #fff;
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+}
+
+.avatarRemoveSm:hover {
+    filter: brightness(0.95);
+}
+
+/* ไอเท็มสมาชิกใน popup */
+.avatarItem {
+    position: relative;
+    /* สำหรับปุ่มลบซ้อนทับ */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+
+/* ปุ่มลบใน popup (ใหญ่ขึ้นนิด) */
+.avatarRemove {
+    position: absolute;
+    top: -7px;
+    left: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: none;
+    background: #ef4444;
+    color: #fff;
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+}
+
+.avatarRemove:hover {
+    filter: brightness(0.95);
+}

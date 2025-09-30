@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Swal from "sweetalert2";
 import { FaPlus, FaCheck } from "react-icons/fa";
@@ -18,6 +18,7 @@ export default function TopicPage() {
     const [invites, setInvites] = useState([]); // tokens list
     const [members, setMembers] = useState([]);
     const [isOwner, setIsOwner] = useState(false);
+    const [showMembers, setShowMembers] = useState(false);
 
     // โหลด topic + me แล้วคำนวณว่าเป็น owner ไหม
     useEffect(() => {
@@ -265,6 +266,61 @@ export default function TopicPage() {
         }
     };
 
+    const removeMember = async (userId) => {
+        if (!isOwner) return;
+        // กันลบเจ้าของหัวข้อ
+        const ownerId = topic?.owner_id; // สคีมาใช้ owner_id แน่นอน
+        if (userId === ownerId) return;
+
+        const ok = await Swal.fire({
+            title: "ลบสมาชิกออกจากหัวข้อนี้?",
+            text: "สมาชิกจะเข้าหัวข้อนี้ไม่ได้จนกว่าจะได้รับเชิญอีกครั้ง",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "ลบ",
+            cancelButtonText: "ยกเลิก",
+            confirmButtonColor: "#ef4444",
+        }).then(r => r.isConfirmed);
+
+        if (!ok) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/topics/${slug}/members/${userId}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            if (res.status === 401) return (window.location.href = "/login?next=/home/" + slug);
+            if (res.status === 403) return Swal.fire({ icon: "error", title: "ไม่มีสิทธิ์" });
+
+            // success แบบ 204 (ไม่มีบอดี้)
+            if (res.status === 204) {
+                setMembers(prev => prev.filter(m => String(m.id) !== String(userId)));
+                Swal.fire({ toast: true, position: "top", icon: "success", title: "ลบแล้ว", showConfirmButton: false, timer: 1300 });
+                return;
+            }
+
+            // เผื่อ API ตอบเป็น JSON
+            let json = null;
+            const ct = res.headers.get("content-type") || "";
+            if (ct.includes("application/json")) {
+                json = await res.json();
+            } else {
+                const text = await res.text(); // กันเคสตอบ text
+                try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+            }
+
+            if (json && json.ok) {
+                setMembers(prev => prev.filter(m => m.id !== userId));
+                Swal.fire({ toast: true, position: "top", icon: "success", title: "ลบแล้ว", showConfirmButton: false, timer: 1300 });
+            } else {
+                Swal.fire({ icon: "error", title: "ลบไม่สำเร็จ" });
+            }
+        } catch (e) {
+            console.error(e);
+            Swal.fire({ icon: "error", title: "ลบไม่สำเร็จ" });
+        }
+    };
+
     if (!topic) return <h1 className={styles.title}>กำลังโหลด...</h1>;
 
     return (
@@ -290,8 +346,21 @@ export default function TopicPage() {
 
                 {/* สมาชิก */}
                 <div className={styles.inviteRow}>
-                    <div className={styles.avatars}>
-                        {members.slice(0, 5).map(m => (
+                    <div
+                        className={styles.avatars}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setShowMembers(true)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setShowMembers(true);
+                            }
+                        }}
+                        title="ดูสมาชิกทั้งหมด"
+                    >
+                        {/* โชว์ 3 คนแรก */}
+                        {members.slice(0, Math.min(3, members.length)).map((m) => (
                             <img
                                 key={m.id}
                                 src={absolutize(m.profile_image) || `https://i.pravatar.cc/40?u=${m.id}`}
@@ -299,7 +368,16 @@ export default function TopicPage() {
                                 title={m.username}
                             />
                         ))}
-                        {members.length > 5 && <span className={styles.more}>+{members.length - 5}</span>}
+
+                        {/* ถ้ามากกว่า 3 → ใช้ more.png */}
+                        {members.length > 3 && (
+                            <img
+                                src="/more.png"
+                                alt={`+${members.length - 3}`}
+                                title={`สมาชิกเพิ่มอีก ${members.length - 3} คน`}
+                                className={styles.moreAvatar}
+                            />
+                        )}
                     </div>
 
                     {/* ปุ่มสร้างลิงก์: แสดงเฉพาะ owner */}
@@ -367,6 +445,137 @@ export default function TopicPage() {
                     </ul>
                 )}
             </section>
+
+            <MembersModal
+                open={showMembers}
+                onClose={() => setShowMembers(false)}
+                members={members}
+                isOwner={isOwner}
+                ownerId={topic?.owner_id ?? topic?.created_by}
+                onRemoveMember={removeMember}
+            />
+        </div>
+    );
+}
+
+function MembersModal({
+    open,
+    onClose,
+    members = [],
+    isOwner = false,
+    ownerId,
+    onRemoveMember,
+}) {
+    const dialogId = "members-modal-title";
+    const overlayRef = useRef(null);
+    const closeBtnRef = useRef(null);
+
+    // ปิดเมื่อกด ESC + ล็อก scroll หน้า
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => {
+            if (e.key === "Escape") onClose?.();
+        };
+        document.addEventListener("keydown", onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        // โฟกัสปุ่มปิดเมื่อเปิด
+        queueMicrotask(() => closeBtnRef.current?.focus());
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prev;
+        };
+    }, [open, onClose]);
+
+    // ปิดการโฟกัสของพื้นหลังด้วย inert (เฉพาะตอนเปิด)
+    useEffect(() => {
+        if (!open) return;
+        const overlayEl = overlayRef.current;
+        if (!overlayEl) return;
+        // ใส่ inert ให้ “พี่น้อง” ของ overlay (ทั้งหน้า) เพื่อกันโฟกัสพื้นหลัง
+        const parent = overlayEl.parentElement;
+        const siblings = parent ? Array.from(parent.children).filter(el => el !== overlayEl) : [];
+        siblings.forEach(el => el.setAttribute('inert', ''));
+        return () => siblings.forEach(el => el.removeAttribute('inert'));
+    }, [open]);
+
+    if (!open) return null;
+
+    return (
+        <div
+            ref={overlayRef}
+            className={styles.modalOverlay}
+            onClick={onClose}
+        >
+            <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogId}
+                onClick={(e) => e.stopPropagation()}
+                // focus trap แบบง่าย: วนโฟกัสในกล่อง
+                onKeyDown={(e) => {
+                    if (e.key !== 'Tab') return;
+                    const focusables = Array.from(
+                        e.currentTarget.querySelectorAll(
+                            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                        )
+                    ).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+                    if (focusables.length === 0) return;
+                    const first = focusables[0];
+                    const last = focusables[focusables.length - 1];
+                    if (e.shiftKey && document.activeElement === first) {
+                        e.preventDefault(); last.focus();
+                    } else if (!e.shiftKey && document.activeElement === last) {
+                        e.preventDefault(); first.focus();
+                    }
+                }}
+            >
+                <div className={styles.modalHeader}>
+                    <h3 id={dialogId}>สมาชิกทั้งหมด ({members.length})</h3>
+                    <button
+                        type="button"
+                        className={styles.modalClose}
+                        onClick={onClose}
+                        aria-label="ปิดหน้าต่าง"
+                        title="ปิด"
+                        ref={closeBtnRef}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <div className={styles.modalBody}>
+                    {members.length === 0 ? (
+                        <p className={styles.empty}>ยังไม่มีสมาชิก ✨</p>
+                    ) : (
+                        <div className={styles.membersGrid}>
+                            {members.map((m) => (
+                                <div className={styles.avatarItem} key={m.id}>
+                                    <img
+                                        className={styles.avatarImgLg}
+                                        src={(m.profile_image && absolutize(m.profile_image)) || `https://i.pravatar.cc/100?u=${m.id}`}
+                                        alt={m.username}
+                                    />
+                                    {isOwner && m.id !== ownerId && (
+                                        <button
+                                            type="button"
+                                            className={styles.avatarRemove}
+                                            aria-label={`ลบ ${m.username}`}
+                                            title="ลบสมาชิก"
+                                            onClick={() => onRemoveMember?.(m.id)}
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                    <span className={styles.avatarName} title={m.username}>{m.username}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

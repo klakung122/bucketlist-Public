@@ -9,7 +9,8 @@ import {
     listOwnedTopics,
     updateTopicTitleOwnerOnly,
     deleteTopicOwnerOnly,
-    listTopicMembers
+    listTopicMembers,
+    removeTopicMember
 } from "../controllers/topicsController.js";
 import { requireAuth } from "../middlewares/requireAuth.js";
 
@@ -24,5 +25,6 @@ router.get("/:slug/lists", listListsByTopicSlug);
 router.post("/:slug/lists", createListByTopicSlug);
 router.patch("/:id", updateTopicTitleOwnerOnly);
 router.delete("/:id", deleteTopicOwnerOnly);
+router.delete("/:slug/members/:userId", requireAuth, removeTopicMember);
 
 export default router;
