@@ -271,8 +271,120 @@
     color: white;
 }
 
+/* Overlay */
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .45);
+    padding: 16px;
+    backdrop-filter: saturate(120%) blur(2px);
+}
+
+/* Card */
+.modal {
+    position: relative;
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px 20px 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .18), 0 2px 10px rgba(0, 0, 0, .08);
+    animation: modalIn .16s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        transform: translateY(6px) scale(.98);
+        opacity: 0
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1
+    }
+}
+
+/* Header */
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 6px 0 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f5;
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700
+}
+
+/* Close */
+.modalClose {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #111827;
+    font-size: 18px;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.modalClose:hover {
+    background: #e5e7eb
+}
+
+.modalClose:active {
+    transform: scale(.96)
+}
+
+/* Body */
+.modalBody {
+    margin-top: 10px;
+    padding: 16px;
+}
+
+/* Actions */
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.modalActions .btnPrimary {
+    width: 100%;
+}
+
+.modalBody .input {
+    width: 100%;
+    margin: 10px 0;
+}
+
+.modalActions .btnGhost {
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: #f3f4f6;
+    color: #111827;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.modalActions .btnGhost:hover {
+    filter: brightness(.98)
+}
+
 @media (max-width: 768px) {
     .wrap {
-        padding: 16px;
+        margin: 40px auto;
+        padding: 0;
     }
 }

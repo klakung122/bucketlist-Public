@@ -22,6 +22,41 @@ export default function TopicPage() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newListTitle, setNewListTitle] = useState("");
     const [newListDesc, setNewListDesc] = useState("");
+    const [viewOpen, setViewOpen] = useState(false);
+    const [viewIndex, setViewIndex] = useState(-1);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editIndex, setEditIndex] = useState(-1);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDesc, setEditDesc] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
+
+    const openEdit = (idx) => {
+        const it = lists[idx];
+        if (!it) return;
+        setEditIndex(idx);
+        setEditTitle(it.text || "");
+        setEditDesc(it.description || "");
+        setEditOpen(true);
+    };
+
+    const closeEdit = () => {
+        if (editLoading) return;
+        setEditOpen(false);
+        setEditIndex(-1);
+        setEditTitle("");
+        setEditDesc("");
+    };
+
+    const openView = (idx) => {
+        setViewIndex(idx);
+        setViewOpen(true);
+    };
+
+    const closeView = () => {
+        setViewOpen(false);
+        setViewIndex(-1);
+    };
 
     // โหลด topic + me แล้วคำนวณว่าเป็น owner ไหม
     useEffect(() => {
@@ -82,7 +117,14 @@ export default function TopicPage() {
     // ปุ่มสร้างลิงก์: กันพลาดเช็คอีกชั้น
     const createInvite = async () => {
         if (!isOwner) {
-            return Swal.fire({ icon: "error", title: "คุณไม่ใช่เจ้าของหัวข้อนี้" });
+            return Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "error",
+                title: "คุณไม่ใช่เจ้าของหัวข้อนี้",
+                showConfirmButton: false,
+                timer: 2000,
+            });
         }
         try {
             const res = await fetch(`${API_BASE}/topics/${slug}/invites`, {
@@ -91,22 +133,56 @@ export default function TopicPage() {
                 credentials: "include",
                 body: JSON.stringify({ maxUses: 1, expiresInDays: 1 }),
             });
-            if (res.status === 401) return (window.location.href = "/login?next=/home/" + slug);
-            if (res.status === 403) return Swal.fire({ icon: "error", title: "เฉพาะเจ้าของหัวข้อเท่านั้น" });
+            if (res.status === 401)
+                return (window.location.href = "/login?next=/home/" + slug);
+            if (res.status === 403)
+                return Swal.fire({
+                    toast: true,
+                    position: "top",
+                    icon: "error",
+                    title: "เฉพาะเจ้าของหัวข้อเท่านั้น",
+                    showConfirmButton: false,
+                    timer: 2000,
+                });
 
             const json = await res.json();
-            if (!json.ok) return Swal.fire({ icon: "error", title: "สร้างลิงก์ไม่สำเร็จ" });
+            if (!json.ok)
+                return Swal.fire({
+                    toast: true,
+                    position: "top",
+                    icon: "error",
+                    title: "สร้างลิงก์ไม่สำเร็จ",
+                    showConfirmButton: false,
+                    timer: 2000,
+                });
 
             await navigator.clipboard.writeText(json.data.invite_url);
-            Swal.fire({ icon: "success", title: "คัดลอกลิงก์เชิญแล้ว", text: "ลิงก์นี้ใช้ได้ 1 คน / 24 ชม.", confirmButtonColor: "#8b5cf6" });
+            Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "success",
+                title: "คัดลอกลิงก์เชิญแล้ว",
+                text: "ลิงก์นี้ใช้ได้ 1 คน / 24 ชม.",
+                showConfirmButton: false,
+                timer: 2500,
+            });
 
             // refresh เฉพาะ owner
-            const r2 = await fetch(`${API_BASE}/topics/${slug}/invites`, { credentials: "include" });
+            const r2 = await fetch(`${API_BASE}/topics/${slug}/invites`, {
+                credentials: "include",
+            });
             const j2 = await r2.json();
             if (j2.ok) setInvites(j2.data);
         } catch (e) {
             console.error(e);
-            Swal.fire({ icon: "error", title: "สร้างลิงก์ไม่สำเร็จ" });
+            Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "error",
+                title: "สร้างลิงก์ไม่สำเร็จ",
+                showConfirmButton: false,
+                timer: 2000,
+            });
         }
     };
 
@@ -191,7 +267,7 @@ export default function TopicPage() {
         setLists(prev => prev.map((it, i) => i === index ? { ...it, done: nextDone } : it));
 
         try {
-            const res = await fetch(`${API_BASE}/lists/${item.id}`, {
+            const res = await fetch(`${API_BASE}/lists/${item.id}/status`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -323,6 +399,119 @@ export default function TopicPage() {
         }
     }, [loading]);
 
+    // ⬇️ วางใน TopicPage() หลังจากประกาศ state ที่เกี่ยวกับ edit แล้ว
+    const handleEditSubmit = useCallback(async () => {
+        const idx = editIndex;
+        const item = lists[idx];
+        if (!item) return;
+
+        const newTitle = (editTitle || "").trim();
+        const newDesc = (editDesc || "").trim();
+        if (!newTitle) return;
+
+        setEditLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/lists/${item.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    title: newTitle,
+                    description: newDesc || null,
+                }),
+            });
+
+            if (res.status === 401) {
+                window.location.href = "/login?next=/home/" + slug;
+                return;
+            }
+            if (res.status === 403) {
+                Swal.fire({ toast: true, position: "top", icon: "error", title: "ไม่มีสิทธิ์", showConfirmButton: false, timer: 1600 });
+                return;
+            }
+
+            const json = await res.json();
+            if (!json.ok) {
+                const msg = json.error === "DUPLICATE_TITLE" ? "ชื่อนี้มีอยู่แล้ว" : "บันทึกไม่สำเร็จ";
+                Swal.fire({ toast: true, position: "top", icon: "error", title: msg, showConfirmButton: false, timer: 1600 });
+                return;
+            }
+
+            // อัปเดต state ในหน้า
+            setLists(prev =>
+                prev.map((it, i) =>
+                    i === idx ? { ...it, text: newTitle, description: newDesc || "" } : it
+                )
+            );
+
+            // ปิด modal + แจ้งเตือน
+            setEditOpen(false);
+            setEditIndex(-1);
+            Swal.fire({ toast: true, position: "top", icon: "success", title: "บันทึกแล้ว", showConfirmButton: false, timer: 1200 });
+        } catch (err) {
+            console.error(err);
+            Swal.fire({ toast: true, position: "top", icon: "error", title: "บันทึกไม่สำเร็จ", showConfirmButton: false, timer: 1600 });
+        } finally {
+            setEditLoading(false);
+        }
+    }, [API_BASE, slug, lists, editIndex, editTitle, editDesc]);
+
+    const handleDelete = useCallback(async (index) => {
+        const item = lists[index];
+        if (!item) return;
+
+        // confirm ลบ (ใช้ swal แบบยืนยัน)
+        const ok = await Swal.fire({
+            title: "ลบรายการนี้?",
+            text: `“${item.text}” จะถูกลบถาวร`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "ลบ",
+            cancelButtonText: "ยกเลิก",
+            confirmButtonColor: "#ef4444",
+        }).then(r => r.isConfirmed);
+
+        if (!ok) return;
+
+        setDeletingId(item.id);
+
+        // optimistic remove
+        const prev = lists;
+        setLists(prev => prev.filter((_, i) => i !== index));
+
+        try {
+            const res = await fetch(`${API_BASE}/lists/${item.id}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+
+            if (res.status === 401) {
+                window.location.href = "/login?next=/home/" + slug;
+                return;
+            }
+            if (res.status === 403) {
+                // rollback
+                setLists(prev);
+                Swal.fire({ toast: true, position: "top", icon: "error", title: "ไม่มีสิทธิ์", showConfirmButton: false, timer: 1600 });
+                return;
+            }
+            if (!res.ok) {
+                // rollback
+                setLists(prev);
+                Swal.fire({ toast: true, position: "top", icon: "error", title: "ลบไม่สำเร็จ", showConfirmButton: false, timer: 1600 });
+                return;
+            }
+
+            Swal.fire({ toast: true, position: "top", icon: "success", title: "ลบแล้ว", showConfirmButton: false, timer: 1200 });
+        } catch (err) {
+            console.error(err);
+            setLists(prev); // rollback
+            Swal.fire({ toast: true, position: "top", icon: "error", title: "ลบไม่สำเร็จ", showConfirmButton: false, timer: 1600 });
+        } finally {
+            setDeletingId(null);
+        }
+    }, [lists, slug]);
+
     if (!topic) return <h1 className={styles.title}>กำลังโหลด...</h1>;
 
     return (
@@ -420,7 +609,7 @@ export default function TopicPage() {
                             <li
                                 key={item.id}
                                 className={`${styles.listItem} ${item.done ? styles.done : ""}`}
-                                onClick={!editMode ? () => toggleDone(idx) : undefined}
+                                onClick={!editMode ? () => openView(idx) : undefined}
                             >
                                 <div className={styles.listTitle}>
                                     <span className={styles.circle}>
@@ -434,7 +623,7 @@ export default function TopicPage() {
                                         <button
                                             type="button"
                                             className={styles.actionBtn}
-                                            onClick={() => handleEdit(idx)}
+                                            onClick={() => openEdit(idx)}         // <-- เปลี่ยนตรงนี้
                                             aria-label="แก้ไขรายการ"
                                             title="แก้ไข"
                                         >
@@ -466,25 +655,60 @@ export default function TopicPage() {
                 onRemoveMember={removeMember}
             />
 
-            <AddListModal
+            <ViewListModal
+                open={viewOpen}
+                onClose={closeView}
+                item={viewIndex >= 0 ? lists[viewIndex] : null}
+                onComplete={async () => {
+                    // reuse toggleDone ที่มีอยู่
+                    await toggleDone(viewIndex);
+                    closeView();
+                    Swal.fire({ toast: true, position: "top", icon: "success", title: "ทำเสร็จแล้ว", showConfirmButton: false, timer: 1300 });
+                }}
+            />
+
+            <ListModal
                 open={isAddOpen}
                 onClose={handleCloseAdd}
-                value={newListTitle}
-                onChange={setNewListTitle}
-                onSubmit={handleCreateList}
+                mode="add"
+                titleValue={newListTitle}
                 descValue={newListDesc}
+                onTitleChange={setNewListTitle}
                 onDescChange={setNewListDesc}
+                onSubmit={handleCreateList}
                 loading={loading}
             />
+
+            <ListModal
+                open={editOpen}
+                onClose={closeEdit}
+                mode="edit"
+                titleValue={editTitle}
+                descValue={editDesc}
+                onTitleChange={setEditTitle}
+                onDescChange={setEditDesc}
+                onSubmit={handleEditSubmit}
+                loading={editLoading}
+            />
+
         </div>
     );
 }
 
-function AddListModal({ open, onClose, value, onChange, descValue, onDescChange, onSubmit, loading }) {
+function ListModal({
+    open,
+    onClose,
+    mode = "add", // "add" | "edit"
+    titleValue,
+    descValue,
+    onTitleChange,
+    onDescChange,
+    onSubmit,
+    loading,
+}) {
+    const dialogId = mode === "add" ? "add-list-title" : "edit-list-title";
     const inputRef = useRef(null);
-    const overlayRef = useRef(null);
     const closeBtnRef = useRef(null);
-    const dialogId = "add-list-title";
 
     useEffect(() => {
         if (!open) return;
@@ -492,7 +716,10 @@ function AddListModal({ open, onClose, value, onChange, descValue, onDescChange,
         document.addEventListener("keydown", onKey);
         const prev = document.body.style.overflow;
         document.body.style.overflow = "hidden";
+
+        // focus เฉพาะตอนแรก
         queueMicrotask(() => inputRef.current?.focus());
+
         return () => {
             document.removeEventListener("keydown", onKey);
             document.body.style.overflow = prev;
@@ -502,41 +729,20 @@ function AddListModal({ open, onClose, value, onChange, descValue, onDescChange,
     if (!open) return null;
 
     return (
-        <div
-            ref={overlayRef}
-            className={styles.modalOverlay}
-            onClick={() => !loading && onClose?.()}
-            aria-hidden={!open}
-        >
+        <div className={styles.modalOverlay} onClick={() => !loading && onClose?.()}>
             <div
                 className={styles.modal}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={dialogId}
                 onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => {
-                    if (e.key === "Tab") {
-                        // trap โฟกัสแบบง่าย
-                        const focusables = Array.from(
-                            e.currentTarget.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-                        ).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
-                        if (focusables.length === 0) return;
-                        const first = focusables[0];
-                        const last = focusables[focusables.length - 1];
-                        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-                        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-                        return;
-                    }
-                }}
             >
                 <div className={styles.modalHeader}>
-                    <h3 id={dialogId}>เพิ่มลิสต์ใหม่</h3>
+                    <h3 id={dialogId}>{mode === "add" ? "เพิ่มลิสต์ใหม่" : "แก้ไขลิสต์"}</h3>
                     <button
                         type="button"
                         className={styles.modalClose}
                         onClick={() => !loading && onClose?.()}
-                        aria-label="ปิดหน้าต่าง"
-                        title="ปิด"
                         ref={closeBtnRef}
                     >
                         ✕
@@ -547,14 +753,7 @@ function AddListModal({ open, onClose, value, onChange, descValue, onDescChange,
                     className={styles.modalBody}
                     onSubmit={(e) => {
                         e.preventDefault();
-                        if (!loading && value.trim()) onSubmit?.();
-                    }}
-                    onKeyDown={(e) => {
-                        // ช็อตคัตส่งด้วย Ctrl/Cmd+Enter เท่านั้น (ไม่บังคับจะลบทิ้งได้)
-                        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                            e.preventDefault();
-                            if (!loading && value.trim()) onSubmit?.();
-                        }
+                        if (!loading && titleValue.trim()) onSubmit?.();
                     }}
                 >
                     <label className={styles.label} htmlFor="list-title">ชื่อรายการ</label>
@@ -564,18 +763,18 @@ function AddListModal({ open, onClose, value, onChange, descValue, onDescChange,
                         className={styles.input}
                         type="text"
                         placeholder="เช่น จัดกระเป๋า / ทำวีซ่า"
-                        value={value}
-                        onChange={(e) => onChange?.(e.target.value)}
+                        value={titleValue}
+                        onChange={(e) => onTitleChange?.(e.target.value)}
                         disabled={loading}
-                        autoComplete="off"
-                        spellCheck={false}
                     />
 
-                    <label className={styles.label} htmlFor="list-desc" style={{ marginTop: 12 }}>คำอธิบาย (ไม่บังคับ)</label>
+                    <label className={styles.label} htmlFor="list-desc" style={{ marginTop: 12 }}>
+                        คำอธิบาย (ไม่บังคับ)
+                    </label>
                     <textarea
                         id="list-desc"
                         className={styles.textarea}
-                        placeholder="รายละเอียดเพิ่มเติม เช่น เอกสารที่ต้องเตรียม สิ่งที่ต้องเช็ค"
+                        placeholder="รายละเอียดเพิ่มเติม"
                         value={descValue}
                         onChange={(e) => onDescChange?.(e.target.value)}
                         disabled={loading}
@@ -583,17 +782,101 @@ function AddListModal({ open, onClose, value, onChange, descValue, onDescChange,
                     />
 
                     <div className={styles.modalActions}>
-                        <button
-                            type="submit"
-                            className={styles.confirmBtn}
-                            disabled={!value.trim() || loading}
-                        >
-                            {loading ? "กำลังเพิ่ม..." : "เพิ่มรายการ"}
+                        <button type="submit" className={styles.confirmBtn} disabled={!titleValue.trim() || loading}>
+                            {loading ? "กำลังบันทึก..." : (mode === "add" ? "เพิ่มรายการ" : "บันทึกการแก้ไข")}
                         </button>
                     </div>
                 </form>
             </div>
-        </div >
+        </div>
+    );
+}
+
+function ViewListModal({ open, onClose, item, onComplete }) {
+    const dialogId = "view-list-title";
+    const overlayRef = useRef(null);
+    const closeBtnRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+        document.addEventListener("keydown", onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        queueMicrotask(() => closeBtnRef.current?.focus());
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prev;
+        };
+    }, [open, onClose]);
+
+    if (!open || !item) return null;
+
+    return (
+        <div
+            ref={overlayRef}
+            className={styles.modalOverlay}
+            onClick={onClose}
+            aria-hidden={!open}
+        >
+            <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogId}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                    if (e.key !== "Tab") return;
+                    const focusables = Array.from(
+                        e.currentTarget.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+                    ).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+                    if (focusables.length === 0) return;
+                    const first = focusables[0];
+                    const last = focusables[focusables.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }}
+            >
+                <div className={styles.modalHeader}>
+                    <h3 id={dialogId}>{item.text}</h3>
+                </div>
+
+                <div className={styles.modalBody}>
+                    {/* สเตตัสชิปเล็กๆ */}
+                    <div className={styles.statusRow}>
+                        <span className={`${styles.statusChip} ${item.done ? styles.statusDone : styles.statusActive}`}>
+                            {item.done ? "เสร็จแล้ว" : "ยังไม่เสร็จ"}
+                        </span>
+                    </div>
+
+                    {/* รายละเอียด (มีหรือไม่มีก็โชว์ให้ชัด) */}
+                    {item.description?.trim() ? (
+                        <p className={styles.listDescription}>{item.description}</p>
+                    ) : (
+                        <p className={styles.listDescription} style={{ opacity: .7 }}>— ไม่มีรายละเอียด —</p>
+                    )}
+                </div>
+
+                <div className={styles.modalActions}>
+                    {!item.done && (
+                        <button
+                            type="button"
+                            className={styles.confirmBtn}
+                            onClick={onComplete}
+                        >
+                            ทำเสร็จแล้ว
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className={styles.cancelBtn}
+                        onClick={onClose}
+                    >
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 }
 

@@ -8,6 +8,7 @@
 /* desktop: sidebar คงที่ทางซ้าย */
 .content {
     padding: 24px;
+    grid-column: 2;
 }
 
 .mobileHeader {
@@ -42,5 +43,9 @@
     .mobileHeader {
         display: block;
         width: fit-content;
+    }
+
+    .content {
+        grid-column: 1;
     }
 }

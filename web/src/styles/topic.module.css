@@ -581,3 +581,55 @@
     color: #6b7280;
     white-space: pre-wrap;
 }
+
+.statusRow {
+    margin-bottom: 8px;
+}
+
+.statusChip {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+}
+
+.statusActive {
+    background: #eef2ff;
+    /* indigo-50 */
+    color: #3730a3;
+    /* indigo-800 */
+    border-color: #e0e7ff;
+    /* indigo-100 */
+}
+
+.statusDone {
+    background: #ecfdf5;
+    /* emerald-50 */
+    color: #065f46;
+    /* emerald-800 */
+    border-color: #d1fae5;
+    /* emerald-100 */
+}
+
+.cancelBtn {
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: #f3f4f6;
+    color: #111827;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.cancelBtn:hover {
+    filter: brightness(0.98);
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 0;
+    }
+}

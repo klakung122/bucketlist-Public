@@ -111,52 +111,115 @@ export default function HomePage() {
 
             {/* Modal */}
             {isOpen && (
-                <div className={styles.modalOverlay} onClick={closeModal} aria-hidden={!isOpen}>
+                <div
+                    className={styles.modalOverlay}
+                    onClick={closeModal}
+                    aria-hidden={!isOpen}
+                >
                     <div
                         className={styles.modal}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="createTopicTitle"
                         onClick={(e) => e.stopPropagation()}
-                        onKeyDown={onKeyDown}
+                        onKeyDown={(e) => {
+                            // ---- Tab focus trap (แบบเดียวกับอันบน) ----
+                            if (e.key === "Tab") {
+                                const focusables = Array.from(
+                                    e.currentTarget.querySelectorAll(
+                                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                                    )
+                                ).filter(
+                                    (el) =>
+                                        !el.hasAttribute("disabled") && !el.getAttribute("aria-hidden")
+                                );
+                                if (focusables.length === 0) return;
+                                const first = focusables[0];
+                                const last = focusables[focusables.length - 1];
+                                if (e.shiftKey && document.activeElement === first) {
+                                    e.preventDefault();
+                                    last.focus();
+                                } else if (!e.shiftKey && document.activeElement === last) {
+                                    e.preventDefault();
+                                    first.focus();
+                                }
+                                return;
+                            }
+
+                            // ---- ช็อตคัตส่งด้วย Ctrl/Cmd+Enter ----
+                            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                                e.preventDefault();
+                                if (!loading && newTopic.trim()) handleAdd();
+                            }
+                        }}
                     >
-                        <button className={styles.closeBtn} aria-label="ปิด" onClick={closeModal} type="button">
-                            ×
-                        </button>
+                        {/* Header รูปแบบเดียวกับอันบน */}
+                        <div className={styles.modalHeader}>
+                            <h3 id="createTopicTitle">สร้างหัวข้อใหม่</h3>
+                            <button
+                                type="button"
+                                className={styles.modalClose}
+                                aria-label="ปิดหน้าต่าง"
+                                title="ปิด"
+                                onClick={closeModal}
+                                disabled={loading}
+                            >
+                                ✕
+                            </button>
+                        </div>
 
-                        <h3 id="createTopicTitle" className={styles.modalTitle}>
-                            สร้างหัวข้อใหม่
-                        </h3>
-
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={newTopic}
-                            onChange={(e) => setNewTopic(e.target.value)}
-                            placeholder="พิมพ์ชื่อหัวข้อ..."
-                            className={styles.input}
-                            autoComplete="off"
-                            spellCheck={false}
-                            autoFocus
-                            disabled={loading}
-                        />
-
-                        <textarea
-                            value={newDesc}
-                            onChange={(e) => setNewDesc(e.target.value)}
-                            placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"
-                            className={styles.textarea}
-                            disabled={loading}
-                        />
-
-                        <button
-                            onClick={handleAdd}
-                            className={styles.confirmBtn}
-                            type="button"
-                            disabled={!newTopic.trim() || loading}
+                        {/* Body เป็น form + label/input/textarea + actions แบบเดียวกัน */}
+                        <form
+                            className={styles.modalBody}
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (!loading && newTopic.trim()) handleAdd();
+                            }}
                         >
-                            {loading ? "กำลังเพิ่ม..." : "เพิ่มหัวข้อ"}
-                        </button>
+                            <label className={styles.label} htmlFor="topic-title">
+                                ชื่อหัวข้อ
+                            </label>
+                            <input
+                                id="topic-title"
+                                ref={inputRef}
+                                type="text"
+                                value={newTopic}
+                                onChange={(e) => setNewTopic(e.target.value)}
+                                placeholder="พิมพ์ชื่อหัวข้อ..."
+                                className={styles.input}
+                                autoComplete="off"
+                                spellCheck={false}
+                                autoFocus
+                                disabled={loading}
+                            />
+
+                            <label
+                                className={styles.label}
+                                htmlFor="topic-desc"
+                                style={{ marginTop: 12 }}
+                            >
+                                รายละเอียดเพิ่มเติม (ไม่บังคับ)
+                            </label>
+                            <textarea
+                                id="topic-desc"
+                                value={newDesc}
+                                onChange={(e) => setNewDesc(e.target.value)}
+                                placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ)"
+                                className={styles.textarea}
+                                disabled={loading}
+                                rows={3}
+                            />
+
+                            <div className={styles.modalActions}>
+                                <button
+                                    className={styles.confirmBtn}
+                                    type="submit"
+                                    disabled={!newTopic.trim() || loading}
+                                >
+                                    {loading ? "กำลังเพิ่ม..." : "เพิ่มหัวข้อ"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

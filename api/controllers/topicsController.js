@@ -218,12 +218,13 @@ export async function listListsByTopicSlug(req, res) {
             return res.status(403).json({ ok: false, error: "FORBIDDEN" });
 
         const [rows] = await conn.query(
-            `SELECT id, title, status, position, created_at
-       FROM lists
-       WHERE topic_id = ?
-       ORDER BY position ASC, id DESC`,
+            `SELECT id, title, description, status, position, created_at
+         FROM lists
+         WHERE topic_id = ?
+         ORDER BY position ASC, id DESC`,
             [check.topicId]
         );
+
         res.json({ ok: true, data: rows });
     } catch (err) {
         console.error(err);

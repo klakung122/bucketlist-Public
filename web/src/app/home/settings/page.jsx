@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import s from "@/styles/settings.module.css";
 import { API_BASE } from "@/lib/api";
 import { absolutize } from "@/utils/url";
+import Swal from "sweetalert2";
 
 export default function SettingsPage({
     onUploadAvatar,      // (file: File) => Promise<string>
@@ -15,6 +16,22 @@ export default function SettingsPage({
     const [avatarUrl, setAvatarUrl] = useState("");
     const [avatarLoading, setAvatarLoading] = useState(false);
     const [me, setMe] = useState(null);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editingTopic, setEditingTopic] = useState(null);
+    const [editTitle, setEditTitle] = useState("");
+    const [editLoading, setEditLoading] = useState(false);
+
+    const openEdit = (topic) => {
+        setEditingTopic(topic);
+        setEditTitle(topic.title || "");
+        setEditOpen(true);
+    };
+    const closeEdit = () => {
+        if (editLoading) return;
+        setEditOpen(false);
+        setEditingTopic(null);
+        setEditTitle("");
+    };
 
     const pickFile = () => fileRef.current?.click();
     const acceptImage = (f) => {
@@ -94,7 +111,6 @@ export default function SettingsPage({
 
     const validatePwd = () => {
         if (newPwd.length < 8) return "รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร";
-        if (!/[0-9]/.test(newPwd)) return "รหัสผ่านใหม่ควรมีตัวเลขอย่างน้อย 1 ตัว";
         if (newPwd !== confirmPwd) return "รหัสผ่านใหม่และยืนยันไม่ตรงกัน";
         if (newPwd === currentPwd) return "รหัสผ่านใหม่ต้องไม่เหมือนรหัสเดิม";
         return null;
@@ -152,36 +168,43 @@ export default function SettingsPage({
         loadTopics();
     }, []);
 
-    const handleEdit = async (topic) => {
-        const title = prompt("แก้ไขชื่อหัวข้อ", topic.title);
-        if (title == null) return;
-        const t = title.trim();
-        if (!t) return alert("ห้ามเว้นว่าง");
-        try {
-            const res = await fetch(`${API_BASE}/topics/${topic.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ title: t }),
-            });
-            if (!res.ok) throw new Error((await res.json()).error || "แก้ไขไม่สำเร็จ");
-            await loadTopics();
-        } catch (e) {
-            alert(e.message);
-        }
-    };
-
     const handleDelete = async (topic) => {
-        if (!confirm(`ลบหัวข้อ “${topic.title}” ?`)) return;
+        const ok = await Swal.fire({
+            title: `ลบหัวข้อ “${topic.title}” ?`,
+            text: "การลบนี้จะถาวรและไม่สามารถกู้คืนได้",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "ลบ",
+            cancelButtonText: "ยกเลิก",
+            confirmButtonColor: "#ef4444",
+        }).then(r => r.isConfirmed);
+
+        if (!ok) return;
+
         try {
             const res = await fetch(`${API_BASE}/topics/${topic.id}`, {
                 method: "DELETE",
                 credentials: "include",
             });
             if (!res.ok) throw new Error((await res.json()).error || "ลบไม่สำเร็จ");
+
             await loadTopics();
+
+            Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "success",
+                title: "ลบหัวข้อแล้ว",
+                showConfirmButton: false,
+                timer: 1500,
+            });
         } catch (e) {
-            alert(e.message);
+            Swal.fire({
+                icon: "error",
+                title: "ลบไม่สำเร็จ",
+                text: e?.message || "ลองใหม่อีกครั้ง",
+                confirmButtonColor: "#ef4444",
+            });
         }
     };
 
@@ -290,7 +313,7 @@ export default function SettingsPage({
                         </div>
                     )}
                 </form>
-                <p className={s.hint}>อย่างน้อย 8 ตัวอักษร และควรมีตัวเลข 1 ตัวขึ้นไป</p>
+                <p className={s.hint}>อย่างน้อย 8 ตัวอักษร</p>
             </section>
 
             {/* Topics */}
@@ -310,7 +333,7 @@ export default function SettingsPage({
                                         <button
                                             type="button"
                                             className={s.actionBtn}
-                                            onClick={() => handleEdit(t)}
+                                            onClick={() => openEdit(t)}
                                             aria-label="แก้ไขรายการ"
                                             title="แก้ไข"
                                         >
@@ -332,6 +355,137 @@ export default function SettingsPage({
                     </ul>
                 )}
             </section>
+
+            <EditTopicModal
+                open={editOpen}
+                onClose={closeEdit}
+                value={editTitle}
+                onChange={setEditTitle}
+                loading={editLoading}
+                onSubmit={async () => {
+                    const t = editTitle.trim();
+                    if (!t) return alert("ห้ามเว้นว่าง");
+
+                    setEditLoading(true);
+                    try {
+                        const res = await fetch(`${API_BASE}/topics/${editingTopic.id}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({ title: t }),
+                        });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok || json?.ok === false) {
+                            throw new Error(json?.error || "แก้ไขไม่สำเร็จ");
+                        }
+                        await loadTopics();
+                        closeEdit();
+                    } catch (e) {
+                        alert(e.message || "แก้ไขไม่สำเร็จ");
+                    } finally {
+                        setEditLoading(false);
+                    }
+                }}
+            />
+        </div>
+    );
+}
+
+function EditTopicModal({ open, onClose, value, onChange, onSubmit, loading }) {
+    const dialogId = "edit-topic-title";
+    const overlayRef = useRef(null);
+    const inputRef = useRef(null);
+    const closeBtnRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+        document.addEventListener("keydown", onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        queueMicrotask(() => inputRef.current?.focus());
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prev;
+        };
+    }, [open, onClose]);
+
+    if (!open) return null;
+
+    return (
+        <div
+            ref={overlayRef}
+            className={s.modalOverlay}
+            onClick={() => !loading && onClose?.()}
+            aria-hidden={!open}
+        >
+            <div
+                className={s.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogId}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                    if (e.key === "Tab") {
+                        const focusables = Array.from(
+                            e.currentTarget.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')
+                        ).filter(el => !el.hasAttribute('disabled') && !el.getAttribute('aria-hidden'));
+                        if (!focusables.length) return;
+                        const first = focusables[0], last = focusables[focusables.length - 1];
+                        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                    }
+                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                        e.preventDefault();
+                        if (!loading && value.trim()) onSubmit?.();
+                    }
+                }}
+            >
+                <div className={s.modalHeader}>
+                    <h3 id={dialogId}>แก้ไขหัวข้อ</h3>
+                    <button
+                        type="button"
+                        className={s.modalClose}
+                        onClick={() => !loading && onClose?.()}
+                        aria-label="ปิดหน้าต่าง"
+                        title="ปิด"
+                        ref={closeBtnRef}
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <form
+                    className={s.modalBody}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!loading && value.trim()) onSubmit?.();
+                    }}
+                >
+                    <label className={s.label} htmlFor="topic-title-input">ชื่อหัวข้อ</label>
+                    <input
+                        id="topic-title-input"
+                        ref={inputRef}
+                        className={s.input}
+                        type="text"
+                        placeholder="ตั้งชื่อหัวข้อของคุณ"
+                        value={value}
+                        onChange={(e) => onChange?.(e.target.value)}
+                        disabled={loading}
+                        autoComplete="off"
+                        spellCheck={false}
+                    />
+
+                    <div className={s.modalActions}>
+                        <button type="submit" className={s.btnPrimary} disabled={!value.trim() || loading}>
+                            {loading ? "กำลังบันทึก..." : "บันทึก"}
+                        </button>
+                        <button type="button" className={s.btnGhost} onClick={() => !loading && onClose?.()}>
+                            ยกเลิก
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }
