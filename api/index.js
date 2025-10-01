@@ -10,6 +10,7 @@ import topicsRouter from "./routes/topics.js";
 import listsRouter from "./routes/lists.js";
 import inviteRoutes from "./routes/invites.js";
 import { requireAuth } from "./middlewares/requireAuth.js";
+import { initSocket } from "./socket.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -36,6 +37,11 @@ app.use(inviteRoutes);
 app.use("/lists", requireAuth, listsRouter);
 
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+initSocket(server, {
+    origin: ORIGIN,
+    jwtSecret: process.env.JWT_SECRET || "changeme",
+});
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);

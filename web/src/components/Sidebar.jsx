@@ -9,6 +9,7 @@ import { useMe } from "@/hooks/useMe";
 import { useEffect, useState, useCallback } from "react";
 import { API_BASE } from "@/lib/api";
 import { absolutize } from "@/utils/url";
+import { socket } from "@/lib/socket";
 
 const buildPravatar = (user) => {
     if (!user) return null;
@@ -48,6 +49,33 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
         })();
         return () => {
             alive = false;
+        };
+    }, []);
+
+    // ⬇️ เปิด socket และฟังอีเวนต์สำหรับรายการหัวข้อของฉัน
+    useEffect(() => {
+        if (!socket.connected) socket.connect();
+
+        const onCreated = ({ topic }) => {
+            setTopics((prev) => [topic, ...prev]);
+        };
+
+        const onUpdated = ({ topic }) => {
+            setTopics((prev) => prev.map(t => (t.id === topic.id ? { ...t, ...topic } : t)));
+        };
+
+        const onDeleted = ({ id }) => {
+            setTopics((prev) => prev.filter(t => t.id !== id));
+        };
+
+        socket.on("topics:created", onCreated);
+        socket.on("topics:updated", onUpdated);
+        socket.on("topics:deleted", onDeleted);
+
+        return () => {
+            socket.off("topics:created", onCreated);
+            socket.off("topics:updated", onUpdated);
+            socket.off("topics:deleted", onDeleted);
         };
     }, []);
 

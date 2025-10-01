@@ -1,6 +1,7 @@
 // api/controllers/topicsController.js
 import pool from "../db.js";
 import { listMembersByTopicSlug } from "../services/member.js";
+import { getIo, userRoom } from "../socket.js";
 
 function slugify(text) {
     return text
@@ -119,6 +120,18 @@ export async function createTopic(req, res) {
         );
 
         await conn.commit();
+
+        // 🔔 บอกเจ้าของว่า "มีหัวข้อใหม่" (อัปเดต Sidebar ทันที)
+        try {
+            getIo().to(userRoom(ownerId)).emit("topics:created", {
+                topic: {
+                    id: topicId,
+                    title: title.trim(),
+                    description: desc,
+                    slug: uniqueSlug,
+                },
+            });
+        } catch (_) { }
 
         return res.status(201).json({
             ok: true,
@@ -320,6 +333,13 @@ export async function updateTopicTitleOwnerOnly(req, res) {
         }
 
         await pool.query("UPDATE topics SET title = ? WHERE id = ?", [title.trim(), id]);
+        // ยิงอีเวนต์ให้เจ้าของ (และถ้าต้องการ, loop สมาชิก topic_members แล้วยิงด้วย)
+        try {
+            getIo().to(userRoom(userId)).emit("topics:updated", {
+                topic: { id, title: title.trim() },
+            });
+        } catch (_) { }
+
         res.json({ ok: true });
     } catch (err) {
         console.error(err);
@@ -351,6 +371,11 @@ export async function deleteTopicOwnerOnly(req, res) {
         await conn.query("DELETE FROM topics WHERE id = ?", [id]);
 
         await conn.commit();
+        // ให้ Sidebar เอา topic ออกจากรายการทันที
+        try {
+            getIo().to(userRoom(userId)).emit("topics:deleted", { id });
+        } catch (_) { }
+
         res.json({ ok: true });
     } catch (err) {
         await conn.rollback();
