@@ -57,12 +57,13 @@ export async function acceptInviteToken(tokenPlain, userId) {
     try {
         await conn.beginTransaction();
 
+        // lock แถว token กันแข่งกันกดพร้อมกัน
         const [[tk]] = await conn.query(
             `SELECT tt.*, t.id AS topic_id
-       FROM topic_tokens tt
-       JOIN topics t ON t.id = tt.topic_id
-       WHERE tt.token_hash=? AND tt.token_type='invite'
-       FOR UPDATE`,
+             FROM topic_tokens tt
+             JOIN topics t ON t.id = tt.topic_id
+             WHERE tt.token_hash=? AND tt.token_type='invite'
+             FOR UPDATE`,
             [tokenHash]
         );
         if (!tk) {
@@ -80,24 +81,26 @@ export async function acceptInviteToken(tokenPlain, userId) {
             return { ok: false, error: "QUOTA_EXCEEDED" };
         }
 
-        const [[exists]] = await conn.query(
-            `SELECT 1 FROM topic_members WHERE topic_id=? AND user_id=?`,
+        // พยายามเพิ่มสมาชิกด้วย INSERT IGNORE แล้วเช็คผล
+        const [insertRes] = await conn.query(
+            `INSERT IGNORE INTO topic_members (topic_id, user_id) VALUES (?, ?)`,
             [tk.topic_id, userId]
         );
 
-        if (!exists) {
+        const joinedNow = insertRes.affectedRows === 1;
+
+        if (joinedNow) {
+            // ใช้แล้วลบทิ้ง (consume)
             await conn.query(
-                `INSERT IGNORE INTO topic_members (topic_id, user_id) VALUES (?, ?)`,
-                [tk.topic_id, userId]
-            );
-            await conn.query(
-                `UPDATE topic_tokens SET used_count = used_count + 1 WHERE id=?`,
+                `DELETE FROM topic_tokens WHERE id=?`,
                 [tk.id]
             );
         }
+        // ถ้า user เดิมอยู่แล้ว ไม่ลบ token (เผื่อส่งต่อให้คนอื่นใช้จริง)
+        // ถ้าอยาก "ลบไม่ว่าคนเดิมหรือใหม่" ให้ย้าย DELETE มาข้างนอกแบบไม่เช็ค joinedNow
 
         await conn.commit();
-        return { ok: true, topicId: tk.topic_id };
+        return { ok: true, topicId: tk.topic_id, consumed: joinedNow };
     } catch (e) {
         await conn.rollback();
         throw e;

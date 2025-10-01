@@ -955,7 +955,7 @@ function MembersModal({
                 }}
             >
                 <div className={styles.modalHeader}>
-                    <h3 id={dialogId}>สมาชิกทั้งหมด ({members.length})</h3>
+                    <h3 id={dialogId}>สมาชิกทั้งหมด ( {members.length} )</h3>
                     <button
                         type="button"
                         className={styles.modalClose}
