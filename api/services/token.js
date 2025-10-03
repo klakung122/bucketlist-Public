@@ -1,4 +1,3 @@
-// services/token.service.js
 import crypto from "crypto";
 import pool from "../db.js";
 
@@ -33,19 +32,6 @@ export async function listInviteTokensByTopicId(topicId) {
        FROM topic_tokens WHERE topic_id=? ORDER BY id DESC`, [topicId]
         );
         return rows;
-    } finally {
-        conn.release();
-    }
-}
-
-export async function deleteInviteTokenById({ topicId, tokenId }) {
-    const conn = await pool.getConnection();
-    try {
-        const [r] = await conn.query(
-            `DELETE FROM topic_tokens WHERE id=? AND topic_id=?`,
-            [tokenId, topicId]
-        );
-        return r.affectedRows > 0;
     } finally {
         conn.release();
     }

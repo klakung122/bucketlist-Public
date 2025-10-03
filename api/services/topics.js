@@ -1,4 +1,3 @@
-// services/topic.service.js
 import pool from "../db.js";
 
 export async function getTopicBySlug(slug, conn = null) {

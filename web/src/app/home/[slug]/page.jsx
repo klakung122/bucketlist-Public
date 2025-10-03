@@ -7,6 +7,7 @@ import { MdOutlineChecklist } from "react-icons/md";
 import styles from "@/styles/topic.module.css";
 import { API_BASE } from "@/lib/api";
 import { absolutize } from "@/utils/url";
+import { socket } from "@/lib/socket";
 
 export default function TopicPage() {
     const { slug } = useParams();
@@ -30,6 +31,63 @@ export default function TopicPage() {
     const [editDesc, setEditDesc] = useState("");
     const [editLoading, setEditLoading] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+
+    // ✅ join/leave ห้องหัวข้อ + ฟังอีเวนต์ลิสต์
+    useEffect(() => {
+        if (!slug) return;
+        if (!socket.connected) socket.connect();
+        socket.emit("join:topic", slug);
+
+        const onMemberAdded = ({ slug: s, user }) => {
+            if (s !== slug || !user) return;
+            setMembers(prev => (prev.some(m => String(m.id) === String(user.id)) ? prev : [...prev, user]));
+        };
+
+        const onCreated = ({ slug: s, list }) => {
+            if (s !== slug) return;
+            setLists(prev => (prev.some(it => it.id === list.id) ? prev : [
+                {
+                    id: list.id,
+                    text: list.title,
+                    description: list.description ?? "",
+                    done: list.status === "archived",
+                },
+                ...prev
+            ]));
+        };
+
+        const onUpdated = ({ slug: s, list }) => {
+            if (s !== slug) return;
+            setLists(prev => prev.map(it =>
+                it.id === list.id
+                    ? {
+                        ...it,
+                        text: list.title ?? it.text,
+                        description: list.description ?? it.description,
+                        done: list.status ? list.status === "archived" : it.done,
+                    }
+                    : it
+            ));
+        };
+
+        const onDeleted = ({ slug: s, id }) => {
+            if (s !== slug) return;
+            setLists(prev => prev.filter(it => it.id !== id));
+        };
+
+        socket.on("members:added", onMemberAdded);
+        socket.on("lists:created", onCreated);
+        socket.on("lists:updated", onUpdated);
+        socket.on("lists:deleted", onDeleted);
+
+        return () => {
+            socket.emit("leave:topic", slug);
+            socket.off("members:added", onMemberAdded);
+            socket.off("lists:created", onCreated);
+            socket.off("lists:updated", onUpdated);
+            socket.off("lists:deleted", onDeleted);
+        };
+    }, [slug]);
 
     const openEdit = (idx) => {
         const it = lists[idx];
@@ -242,12 +300,6 @@ export default function TopicPage() {
                 return;
             }
 
-            setLists(prev => [{
-                id: json.data.id,
-                text: json.data.title,
-                description: json.data.description ?? newListDesc ?? "",
-                done: false
-            }, ...prev]);
             setIsAddOpen(false);
             setNewListTitle("");
             setNewListDesc("");

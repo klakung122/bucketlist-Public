@@ -4,6 +4,7 @@ import Link from "next/link";
 import styles from "@/styles/home.module.css";
 import { FaPlus } from "react-icons/fa";
 import { API_BASE } from "@/lib/api";
+import { socket } from "@/lib/socket";
 
 export default function HomePage() {
     const [topics, setTopics] = useState([]);
@@ -27,6 +28,41 @@ export default function HomePage() {
             }
         })();
         return () => { alive = false; };
+    }, []);
+
+    // 🎧 ฟัง socket อัปเดตรายการหัวข้อแบบเรียลไทม์
+    useEffect(() => {
+        if (!socket.connected) socket.connect();
+
+        // กันซ้ำ + upsert ชัด ๆ
+        const upsert = (list, item) => {
+            const i = list.findIndex(t => t.id === item.id);
+            if (i === -1) return [item, ...list];
+            const merged = { ...list[i], ...item };
+            return [merged, ...list.filter((_, idx) => idx !== i)];
+        };
+
+        const onCreated = ({ topic }) => {
+            setTopics(prev => {
+                if (prev.some(t => t.id === topic.id)) return prev;
+                return [topic, ...prev];
+            });
+        };
+        const onUpdated = ({ topic }) => {
+            setTopics(prev => upsert(prev, topic));
+        };
+        const onDeleted = ({ id }) => {
+            setTopics(prev => prev.filter(t => t.id !== id));
+        };
+
+        socket.on("topics:created", onCreated);
+        socket.on("topics:updated", onUpdated);
+        socket.on("topics:deleted", onDeleted);
+        return () => {
+            socket.off("topics:created", onCreated);
+            socket.off("topics:updated", onUpdated);
+            socket.off("topics:deleted", onDeleted);
+        };
     }, []);
 
     useEffect(() => {
@@ -63,7 +99,6 @@ export default function HomePage() {
                 setLoading(false);
                 return;
             }
-            setTopics(prev => [json.data, ...prev]);
             closeModal();
         } catch (e) {
             console.error(e);

@@ -1,5 +1,7 @@
 import pool from "../db.js";
 import { z } from "zod";
+import { getIo, topicRoom } from "../socket.js";
+import { getTopicSlugById } from "../helpers/topics.js";
 
 const bodySchema = z.object({
     status: z.enum(["active", "archived"]),
@@ -50,6 +52,17 @@ export async function updateListStatus(req, res) {
         }
 
         await conn.query(`UPDATE lists SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [status, listId]);
+
+        // 🔔 broadcast
+        try {
+            const slug = await getTopicSlugById(conn, list.topic_id);
+            if (slug) {
+                getIo().to(topicRoom(slug)).emit("lists:updated", {
+                    slug,
+                    list: { id: listId, status },
+                });
+            }
+        } catch { }
 
         return res.json({ ok: true, data: { id: listId, status } });
     } catch (err) {
@@ -171,6 +184,22 @@ export async function updateList(req, res) {
             [listId]
         );
 
+        // 🔔 broadcast
+        try {
+            const slug = await getTopicSlugById(conn, after[0].topic_id);
+            if (slug) {
+                getIo().to(topicRoom(slug)).emit("lists:updated", {
+                    slug,
+                    list: {
+                        id: after[0].id,
+                        title: after[0].title,
+                        description: after[0].description,
+                        status: after[0].status,
+                    },
+                });
+            }
+        } catch { }
+
         return res.json({ ok: true, data: after[0] });
     } catch (err) {
         console.error(err);
@@ -218,6 +247,15 @@ export async function deleteList(req, res) {
         if (!auth) return res.status(403).json({ ok: false, error: "FORBIDDEN" });
 
         await conn.query(`DELETE FROM lists WHERE id = ?`, [listId]);
+
+        // 🔔 broadcast
+        try {
+            const slug = await getTopicSlugById(conn, list.topic_id);
+            if (slug) {
+                getIo().to(topicRoom(slug)).emit("lists:deleted", { slug, id: listId });
+            }
+        } catch { }
+
         return res.json({ ok: true });
     } catch (err) {
         console.error(err);

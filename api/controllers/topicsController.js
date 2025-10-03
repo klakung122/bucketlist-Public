@@ -1,7 +1,8 @@
 // api/controllers/topicsController.js
 import pool from "../db.js";
 import { listMembersByTopicSlug } from "../services/member.js";
-import { getIo, userRoom } from "../socket.js";
+import { getIo, userRoom, topicRoom } from "../socket.js";
+import { getTopicMemberIds, emitToUsers } from "../helpers/socket-broadcast.js";
 
 function slugify(text) {
     return text
@@ -121,15 +122,11 @@ export async function createTopic(req, res) {
 
         await conn.commit();
 
-        // 🔔 บอกเจ้าของว่า "มีหัวข้อใหม่" (อัปเดต Sidebar ทันที)
+        // ใหม่: ยิงให้ "สมาชิกทุกคนของหัวข้อ" (ตอนนี้มี owner อยู่คนเดียว)
         try {
-            getIo().to(userRoom(ownerId)).emit("topics:created", {
-                topic: {
-                    id: topicId,
-                    title: title.trim(),
-                    description: desc,
-                    slug: uniqueSlug,
-                },
+            const memberIds = await getTopicMemberIds(conn, topicId);
+            emitToUsers(memberIds, "topics:created", {
+                topic: { id: topicId, title: title.trim(), description: desc, slug: uniqueSlug },
             });
         } catch (_) { }
 
@@ -278,6 +275,20 @@ export async function createListByTopicSlug(req, res) {
         );
 
         await conn.commit();
+
+        // 🔔 broadcast ไปทุกคนในหน้า topic นี้
+        try {
+            getIo().to(topicRoom(req.params.slug)).emit("lists:created", {
+                slug: req.params.slug,
+                list: {
+                    id: result.insertId,
+                    title: title.trim(),
+                    description: description ?? null,
+                    status: "active",
+                },
+            });
+        } catch { }
+
         res.status(201).json({
             ok: true,
             data: { id: result.insertId, title: title.trim(), status: "active" },
@@ -333,12 +344,16 @@ export async function updateTopicTitleOwnerOnly(req, res) {
         }
 
         await pool.query("UPDATE topics SET title = ? WHERE id = ?", [title.trim(), id]);
-        // ยิงอีเวนต์ให้เจ้าของ (และถ้าต้องการ, loop สมาชิก topic_members แล้วยิงด้วย)
+        // ยิงให้สมาชิกทุกคนของหัวข้อนี้
+        const conn2 = await pool.getConnection();
         try {
-            getIo().to(userRoom(userId)).emit("topics:updated", {
+            const memberIds = await getTopicMemberIds(conn2, id);
+            emitToUsers(memberIds, "topics:updated", {
                 topic: { id, title: title.trim() },
             });
-        } catch (_) { }
+        } finally {
+            conn2.release();
+        }
 
         res.json({ ok: true });
     } catch (err) {
@@ -367,14 +382,15 @@ export async function deleteTopicOwnerOnly(req, res) {
             return res.status(403).json({ ok: false, error: "FORBIDDEN" });
         }
 
+        // 1) เก็บรายชื่อสมาชิกก่อนลบ
+        const memberIds = await getTopicMemberIds(conn, id);
+
         // ลบหัวข้อ (FK จะลบ lists / topic_members ที่ผูกแบบ CASCADE ให้ ตาม schema)
         await conn.query("DELETE FROM topics WHERE id = ?", [id]);
 
         await conn.commit();
-        // ให้ Sidebar เอา topic ออกจากรายการทันที
-        try {
-            getIo().to(userRoom(userId)).emit("topics:deleted", { id });
-        } catch (_) { }
+        // ใหม่: แจ้งสมาชิกทุกคนว่าหัวข้อนี้หายไป
+        try { emitToUsers(memberIds, "topics:deleted", { id }); } catch (_) { }
 
         res.json({ ok: true });
     } catch (err) {

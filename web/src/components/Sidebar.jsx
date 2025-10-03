@@ -57,7 +57,10 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
         if (!socket.connected) socket.connect();
 
         const onCreated = ({ topic }) => {
-            setTopics((prev) => [topic, ...prev]);
+            setTopics(prev => {
+                if (prev.some(t => t.id === topic.id)) return prev; // กันซ้ำ
+                return [topic, ...prev];
+            });
         };
 
         const onUpdated = ({ topic }) => {
