@@ -75,10 +75,25 @@ export default function TopicPage() {
             setLists(prev => prev.filter(it => it.id !== id));
         };
 
+        // ✅ เมื่อเจ้าของแก้ไขหัวข้อ (title/description) ให้หน้าอัปเดตทันที
+        const onTopicUpdated = ({ topic: t, slug: s }) => {
+            // ถ้า server ใส่ slug มาก็กรองด้วย slug ก่อน
+            if (s && s !== slug) return;
+            // ต้องมี topic.id ให้เทียบ (ถ้าไม่มี slug)
+            if (t?.id && topic?.id && t.id !== topic.id) return;
+            setTopic(prev => prev ? {
+                ...prev,
+                // อัปเดตเฉพาะฟิลด์ที่ส่งมา (กัน null/undefined ทับของเก่าโดยไม่ตั้งใจ)
+                ...(typeof t.title !== "undefined" ? { title: t.title } : {}),
+                ...(typeof t.description !== "undefined" ? { description: t.description ?? "" } : {}),
+            } : prev);
+        };
+
         socket.on("members:added", onMemberAdded);
         socket.on("lists:created", onCreated);
         socket.on("lists:updated", onUpdated);
         socket.on("lists:deleted", onDeleted);
+        socket.on("topics:updated", onTopicUpdated);
 
         return () => {
             socket.emit("leave:topic", slug);
@@ -86,8 +101,9 @@ export default function TopicPage() {
             socket.off("lists:created", onCreated);
             socket.off("lists:updated", onUpdated);
             socket.off("lists:deleted", onDeleted);
+            socket.off("topics:updated", onTopicUpdated);
         };
-    }, [slug]);
+    }, [slug, topic?.id]);
 
     const openEdit = (idx) => {
         const it = lists[idx];

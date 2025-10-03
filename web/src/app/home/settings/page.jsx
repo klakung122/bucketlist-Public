@@ -20,10 +20,12 @@ export default function SettingsPage({
     const [editingTopic, setEditingTopic] = useState(null);
     const [editTitle, setEditTitle] = useState("");
     const [editLoading, setEditLoading] = useState(false);
+    const [editDesc, setEditDesc] = useState("");
 
     const openEdit = (topic) => {
         setEditingTopic(topic);
         setEditTitle(topic.title || "");
+        setEditDesc(topic.description ?? "");
         setEditOpen(true);
     };
     const closeEdit = () => {
@@ -31,6 +33,7 @@ export default function SettingsPage({
         setEditOpen(false);
         setEditingTopic(null);
         setEditTitle("");
+        setEditDesc("");
     };
 
     const pickFile = () => fileRef.current?.click();
@@ -361,6 +364,8 @@ export default function SettingsPage({
                 onClose={closeEdit}
                 value={editTitle}
                 onChange={setEditTitle}
+                desc={editDesc}
+                onChangeDesc={setEditDesc}
                 loading={editLoading}
                 onSubmit={async () => {
                     const t = editTitle.trim();
@@ -372,7 +377,7 @@ export default function SettingsPage({
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             credentials: "include",
-                            body: JSON.stringify({ title: t }),
+                            body: JSON.stringify({ title: t, description: editDesc }),
                         });
                         const json = await res.json().catch(() => ({}));
                         if (!res.ok || json?.ok === false) {
@@ -391,7 +396,7 @@ export default function SettingsPage({
     );
 }
 
-function EditTopicModal({ open, onClose, value, onChange, onSubmit, loading }) {
+function EditTopicModal({ open, onClose, value, onChange, desc, onChangeDesc, onSubmit, loading }) {
     const dialogId = "edit-topic-title";
     const overlayRef = useRef(null);
     const inputRef = useRef(null);
@@ -403,7 +408,9 @@ function EditTopicModal({ open, onClose, value, onChange, onSubmit, loading }) {
         document.addEventListener("keydown", onKey);
         const prev = document.body.style.overflow;
         document.body.style.overflow = "hidden";
-        queueMicrotask(() => inputRef.current?.focus());
+        queueMicrotask(() => {
+            if (!value.trim()) inputRef.current?.focus();
+        });
         return () => {
             document.removeEventListener("keydown", onKey);
             document.body.style.overflow = prev;
@@ -474,6 +481,23 @@ function EditTopicModal({ open, onClose, value, onChange, onSubmit, loading }) {
                         disabled={loading}
                         autoComplete="off"
                         spellCheck={false}
+                    />
+
+                    <label
+                        className={s.label}
+                        htmlFor="topic-desc"
+                        style={{ marginTop: 12 }}
+                    >
+                        รายละเอียดเพิ่มเติม
+                    </label>
+                    <textarea
+                        id="topic-desc"
+                        placeholder="รายละเอียดเพิ่มเติม"
+                        className={s.textarea}
+                        disabled={loading}
+                        rows={3}
+                        value={desc}
+                        onChange={(e) => onChangeDesc?.(e.target.value)}
                     />
 
                     <div className={s.modalActions}>

@@ -311,7 +311,7 @@ export async function listOwnedTopics(req, res) {
 
     try {
         const [rows] = await pool.query(
-            `SELECT t.id, t.title, t.slug, t.created_at
+            `SELECT t.id, t.title, t.description, t.slug, t.created_at
        FROM topics t
        WHERE t.owner_id = ?
        ORDER BY t.id DESC`,
@@ -327,35 +327,69 @@ export async function listOwnedTopics(req, res) {
 export async function updateTopicTitleOwnerOnly(req, res) {
     const userId = req.user?.id;
     const id = Number(req.params.id || 0);
-    const { title } = req.body || {};
+    const { title, description } = req.body || {};
     if (!userId) return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
     if (!id || !title || !title.trim()) {
         return res.status(400).json({ ok: false, error: "BAD_REQUEST" });
     }
 
     try {
-        // ตรวจว่าเป็น owner
-        const [rows] = await pool.query(
-            "SELECT id FROM topics WHERE id = ? AND owner_id = ? LIMIT 1",
+        // 1) ตรวจ owner และเอา slug มาด้วย (ไว้ใส่ใน event / room)
+        const [[own]] = await pool.query(
+            "SELECT id, slug FROM topics WHERE id = ? AND owner_id = ? LIMIT 1",
             [id, userId]
         );
-        if (rows.length === 0) {
+        if (!own) {
             return res.status(403).json({ ok: false, error: "FORBIDDEN" });
         }
+        const slug = own.slug || null;
 
-        await pool.query("UPDATE topics SET title = ? WHERE id = ?", [title.trim(), id]);
-        // ยิงให้สมาชิกทุกคนของหัวข้อนี้
+        // 2) อัปเดตเฉพาะฟิลด์ที่ส่งมา
+        const fields = ["title = ?"];
+        const params = [title.trim()];
+        let newDesc; // เก็บค่าที่จะตอบกลับ/ยิง socket
+        if (Object.prototype.hasOwnProperty.call(req.body, "description")) {
+            newDesc = (description ?? "").toString();
+            fields.push("description = ?");
+            params.push(newDesc);
+        }
+        params.push(id);
+
+        await pool.query(`UPDATE topics SET ${fields.join(", ")} WHERE id = ?`, params);
+
+        // 3) เตรียม payload เดียวใช้ทั้ง response และ socket
+        const payload = {
+            id,
+            title: title.trim(),
+            ...(Object.prototype.hasOwnProperty.call(req.body, "description")
+                ? { description: newDesc }
+                : {}),
+        };
+
+        // 4) ยิงให้สมาชิกทุกคนของหัวข้อนี้ (by userIds) + ยิงเข้า room ตาม slug (ถ้ามี)
         const conn2 = await pool.getConnection();
         try {
             const memberIds = await getTopicMemberIds(conn2, id);
+
+            // ส่งแบบเจาะ user (โค้ดเดิมของคุณ)
             emitToUsers(memberIds, "topics:updated", {
-                topic: { id, title: title.trim() },
+                slug,      // << เพิ่ม slug ให้ client กรองได้ง่าย
+                topic: payload,
             });
+
+            // ถ้ามี io/room:topic:slug ให้ใช้อีกช่องทาง (เผื่อหน้าไหน join room อยู่)
+            if (slug && global.appIo) {
+                global.appIo.to(`topic:${slug}`).emit("topics:updated", {
+                    slug,
+                    topic: payload,
+                });
+            }
         } finally {
             conn2.release();
         }
 
-        res.json({ ok: true });
+        // 5) ตอบกลับให้ client ใช้ต่อได้ (เช่น อัปเดตทันที/rollback)
+        res.json({ ok: true, data: payload });
     } catch (err) {
         console.error(err);
         res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });

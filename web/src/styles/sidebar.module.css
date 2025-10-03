@@ -115,11 +115,39 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 40vh;
+    max-height: 100vh;
     overflow: auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
+
+    /* Firefox */
+    scrollbar-width: none;
+    /* ซ่อน scrollbar */
+}
+
+/* Chrome, Edge, Safari */
+.topicList::-webkit-scrollbar {
+    width: 0;
+    /* ซ่อน scrollbar */
+    height: 0;
+}
+
+.topicList:hover {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #aaa transparent;
+}
+
+.topicList:hover::-webkit-scrollbar {
+    width: 6px;
+    /* โผล่มาเวลา hover */
+    height: 6px;
+}
+
+.topicList:hover::-webkit-scrollbar-thumb {
+    background-color: #aaa;
+    border-radius: 4px;
 }
 
 .topicItem {
@@ -155,6 +183,8 @@
 }
 
 .ellipsis {
+    flex: 1;
+    /* ให้กินพื้นที่ที่เหลือ */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

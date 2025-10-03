@@ -96,6 +96,25 @@
     box-shadow: 0 0 0 3px rgba(196, 181, 253, .35);
 }
 
+.textarea {
+    width: 100%;
+    min-height: 90px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    outline: none;
+    font-size: 0.95rem;
+    resize: vertical;
+    line-height: 1.4;
+    background: #fff;
+}
+
+.textarea:focus {
+    border-color: #a78bfa;
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, .25);
+}
+
 /* Buttons */
 .btn,
 .btnPrimary,
