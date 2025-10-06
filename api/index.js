@@ -36,7 +36,7 @@ app.use("/api", inviteRoutes);
 
 app.use("/api/lists", requireAuth, listsRouter);
 
-app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 initSocket(server, {
     origin: ORIGIN,
