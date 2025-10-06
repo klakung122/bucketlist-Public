@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import s from "@/styles/settings.module.css";
 import { API_BASE } from "@/lib/api";
-import { absolutize } from "@/utils/url";
 import Swal from "sweetalert2";
 import { FaPen, FaTrash } from "react-icons/fa";
 
@@ -63,6 +62,12 @@ export default function SettingsPage({
         if (f) handleFile(f);
     };
 
+    const toImgSrc = (v) => {
+        if (!v) return "";
+        if (/^https?:\/\//.test(v)) return v;     // URL เต็ม
+        return "/" + String(v).replace(/^\/+/, ""); // บังคับขึ้นต้นด้วย /
+    };
+
     const uploadAvatar = async () => {
         const f = fileRef.current?.files?.[0];
         if (!f) return alert("ยังไม่ได้เลือกรูป");
@@ -82,7 +87,7 @@ export default function SettingsPage({
                 });
                 if (!res.ok) throw new Error((await res.json()).message || "อัปโหลดไม่สำเร็จ");
                 const data = await res.json();
-                setAvatarUrl(data.url);
+                setAvatarUrl(toImgSrc(data.url || data.path || "")); // รองรับทั้ง URL เต็มหรือ path
             }
             setAvatarPreview(null);
             fileRef.current.value = "";
@@ -104,7 +109,7 @@ export default function SettingsPage({
                 const json = await res.json();
                 if (!alive) return;
                 setMe(json?.user || null);
-                setAvatarUrl(json?.user?.profile_image || "");
+                setAvatarUrl(toImgSrc(json?.user?.profile_image || ""));
             } catch {
             } finally {
                 if (alive) setMeLoading(false);
@@ -218,6 +223,13 @@ export default function SettingsPage({
         }
     };
 
+    const src =
+        avatarPreview ||
+        avatarUrl ||                    // ถ้า API คืน URL เต็มมาก็ใช้เลย
+        me?.profile_image ||            // ถ้าเป็น "/uploads/avatars/..." ก็ใช้ตรง ๆ
+        (me ? `https://i.pravatar.cc/120?u=${encodeURIComponent(me.id)}` : null) ||
+        "/no-image.png";
+
     return (
         <div className={s.wrap}>
             <h1 className={s.title}>Settings</h1>
@@ -230,16 +242,7 @@ export default function SettingsPage({
                     {(!hydrated || meLoading) ? (
                         <div className={s.avatarSkel} aria-hidden="true" />
                     ) : (
-                        <img
-                            className={s.avatar}
-                            src={
-                                avatarPreview
-                                || (avatarUrl ? absolutize(avatarUrl) : null)
-                                || (me ? `https://i.pravatar.cc/120?u=${encodeURIComponent(me.id)}` : null)
-                                || "/no-image.png"
-                            }
-                            alt="avatar"
-                        />
+                        <img className={s.avatar} src={src} alt="avatar" />
                     )}
                     <div className={s.avatarBtns}>
                         <input
