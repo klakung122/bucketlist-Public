@@ -65,14 +65,20 @@ export default function SettingsPage({
 
     const uploadAvatar = async () => {
         const f = fileRef.current?.files?.[0];
-        if (!f) return alert("ยังไม่ได้เลือกรูป");
+        if (!f) {
+            return Swal.fire({
+                icon: "info",
+                title: "ยังไม่ได้เลือกรูป",
+                confirmButtonColor: "#6366f1",
+            });
+        }
+
         setAvatarLoading(true);
         try {
             if (onUploadAvatar) {
                 const url = await onUploadAvatar(f);
                 setAvatarUrl(url);
             } else {
-                // mock
                 const form = new FormData();
                 form.append("avatar", f);
                 const res = await fetch(`${API_BASE}/auth/avatar`, {
@@ -80,15 +86,40 @@ export default function SettingsPage({
                     body: form,
                     credentials: "include",
                 });
-                if (!res.ok) throw new Error((await res.json()).message || "อัปโหลดไม่สำเร็จ");
-                const data = await res.json();
-                setAvatarUrl(toImgSrc(data.url || data.path || "")); // รองรับทั้ง URL เต็มหรือ path
+
+                // อ่าน response แค่ครั้งเดียว ป้องกัน JSON parse ซ้ำ
+                const contentType = res.headers.get("content-type") || "";
+                const data = contentType.includes("application/json")
+                    ? await res.json()
+                    : {};
+
+                if (!res.ok) {
+                    throw new Error(data?.message || "อัปโหลดไม่สำเร็จ");
+                }
+
+                // รองรับทั้ง URL เต็มหรือ path
+                const raw = data?.url || data?.path || "";
+                setAvatarUrl(toImgSrc(raw));
             }
+
             setAvatarPreview(null);
-            fileRef.current.value = "";
-            alert("อัปโหลดสำเร็จ");
+            if (fileRef.current) fileRef.current.value = "";
+
+            Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "success",
+                title: "อัปโหลดรูปสำเร็จ",
+                showConfirmButton: false,
+                timer: 1500,
+            });
         } catch (e) {
-            alert(e?.message || "อัปโหลดไม่สำเร็จ");
+            Swal.fire({
+                icon: "error",
+                title: "อัปโหลดไม่สำเร็จ",
+                text: e?.message || "ลองใหม่อีกครั้ง",
+                confirmButtonColor: "#ef4444",
+            });
         } finally {
             setAvatarLoading(false);
         }

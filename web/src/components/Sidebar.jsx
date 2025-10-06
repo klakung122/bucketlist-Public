@@ -25,8 +25,9 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
     const [topics, setTopics] = useState([]);
     const [topicsLoading, setTopicsLoading] = useState(true);
     const [hasFetched, setHasFetched] = useState(false);
-    const showTopicsSkeleton = hydrated ? topicsLoading : true;
+    const [avatarOverride, setAvatarOverride] = useState(null);
 
+    const showTopicsSkeleton = hydrated ? topicsLoading : true;
     const isActive = (href) => pathname === href || pathname?.startsWith(href + "/");
 
     // โหลดหัวข้อจริง
@@ -76,19 +77,25 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
             setTopics((prev) => prev.filter(t => t.id !== id));
         };
 
+        const onMeProfile = ({ url }) => {
+            // ใช้ URL ที่มี cache-bust แล้ว โชว์ทันทีแบบไม่ต้องรีเฟรช
+            setAvatarOverride(url || null);
+        };
+
         socket.on("topics:created", onCreated);
         socket.on("topics:updated", onUpdated);
         socket.on("topics:deleted", onDeleted);
+        socket.on("me:profile", onMeProfile);
 
         return () => {
             socket.off("topics:created", onCreated);
             socket.off("topics:updated", onUpdated);
             socket.off("topics:deleted", onDeleted);
+            socket.off("me:profile", onMeProfile);
         };
     }, []);
 
     const onLogout = useCallback(async () => {
-        if (!confirm("ต้องการออกจากระบบใช่ไหม?")) return;
         try {
             await fetch(`${API_BASE}/auth/logout`, {
                 method: "POST",
@@ -108,21 +115,17 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
 
     const pravatar = buildPravatar(user);
 
-    // อย่าใช้ absolutize กับ path รูป ให้ normalize เองแทน
-
-    const toImgSrc = (v) => {
-        if (!v) return "";
-        if (typeof v !== "string") v = String(v);
-        if (/^https?:\/\//i.test(v)) return v; // URL เต็ม
-        // บังคับให้เป็น absolute path เสมอ เช่น "/uploads/avatars/.."
-        return "/" + v.replace(/^\/+/, "");
-    };
-
     const avatarSrc = userLoading
         ? "/no-image.png"
-        : (user?.profile_image?.trim()
-            ? toImgSrc(user.profile_image.trim())
-            : (pravatar || "/no-image.png"));
+        : (
+            avatarOverride
+                ? avatarOverride
+                : (
+                    user?.profile_image?.trim()
+                        ? toImgSrc(user.profile_image.trim())
+                        : (pravatar || "/no-image.png")
+                )
+        );
 
     return (
         <>

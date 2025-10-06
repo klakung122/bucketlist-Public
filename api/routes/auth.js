@@ -8,6 +8,7 @@ import { requireAuth } from "../middlewares/requireAuth.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { getIo, userRoom, topicRoom } from "../socket.js";
 
 const router = Router();
 
@@ -237,6 +238,8 @@ router.post("/avatar", requireAuth, upload.single("avatar"), async (req, res) =>
     }
 
     const newRelPath = `/uploads/avatars/${req.file.filename}`;
+    const bust = Date.now();
+    const fullUrl = `${base}${newRelPath}?t=${bust}`;
 
     const conn = await pool.getConnection();
     try {
@@ -258,8 +261,53 @@ router.post("/avatar", requireAuth, upload.single("avatar"), async (req, res) =>
             safeUnlinkAvatar(oldPath);
         }
 
-        // ส่ง URL เต็ม + cache bust
-        return res.json({ url: `${base}${newRelPath}?t=${Date.now()}` });
+        // 4) ยิง socket หาผู้ใช้คนนี้ (ทุกอุปกรณ์/แท็บที่ล็อกอิน account เดียวกัน)
+        try {
+            const io = getIo();
+
+            // ให้ตัวเองเด้งทันที
+            io.to(userRoom(req.user.id)).emit("me:profile", {
+                profile_image: newRelPath,
+                url: fullUrl,  // มี ?t= กัน cache
+                t: bust,
+            });
+
+            // ---- NEW: broadcast ให้เพื่อนในทุก topic ที่เกี่ยวข้อง ----
+            try {
+                // ปรับชื่อตาราง/คอลัมน์ตาม schema จริงของคุณ
+                const [rows] = await conn.query(
+                    `
+      SELECT t.slug
+      FROM topics t
+      JOIN topic_members m ON m.topic_id = t.id
+      WHERE m.user_id = ?
+      UNION
+      SELECT t2.slug
+      FROM topics t2
+      WHERE t2.owner_id = ?
+      `,
+                    [req.user.id, req.user.id]
+                );
+
+                for (const r of rows) {
+                    if (!r.slug) continue;
+                    io.to(topicRoom(r.slug)).emit("users:profile", {
+                        slug: r.slug,
+                        userId: req.user.id,
+                        profile_image: newRelPath, // path ที่เก็บใน DB
+                        url: fullUrl,              // URL เต็ม + cache-bust
+                        t: bust,
+                    });
+                }
+            } catch (e) {
+                console.warn("broadcast users:profile failed:", e?.message);
+            }
+        } catch (e) {
+            console.warn("emit me:profile failed:", e?.message);
+        }
+
+        // ส่งกลับให้ผู้ที่อัปโหลดด้วย
+        return res.json({ url: fullUrl });
     } catch (e) {
         console.error("AVATAR_UPLOAD_ERROR:", e);
         return res.status(500).json({ message: "อัปโหลดไม่สำเร็จ" });

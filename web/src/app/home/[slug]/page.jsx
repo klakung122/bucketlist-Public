@@ -31,6 +31,7 @@ export default function TopicPage() {
     const [editDesc, setEditDesc] = useState("");
     const [editLoading, setEditLoading] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
+    const [avatarUrlMap, setAvatarUrlMap] = useState({});
 
     // ✅ join/leave ห้องหัวข้อ + ฟังอีเวนต์ลิสต์
     useEffect(() => {
@@ -89,11 +90,40 @@ export default function TopicPage() {
             } : prev);
         };
 
+        const onUserProfile = ({ slug: s, userId, profile_image, url }) => {
+            if (s && s !== slug) return;
+            if (!userId) return;
+
+            // อัปเดตฟิลด์โปรไฟล์ใน members
+            setMembers(prev =>
+                prev.map(m => String(m.id) === String(userId)
+                    ? { ...m, profile_image: typeof profile_image !== "undefined" ? profile_image : m.profile_image }
+                    : m
+                )
+            );
+
+            // เก็บ URL ที่มี cache-bust
+            if (url) setAvatarUrlMap(prev => ({ ...prev, [userId]: url }));
+        };
+
+        const onMeProfile = ({ userId, profile_image, url }) => {
+            if (!userId) return;
+            setMembers(prev =>
+                prev.map(m => String(m.id) === String(userId)
+                    ? { ...m, profile_image: typeof profile_image !== "undefined" ? profile_image : m.profile_image }
+                    : m
+                )
+            );
+            if (url) setAvatarUrlMap(prev => ({ ...prev, [userId]: url }));
+        };
+
         socket.on("members:added", onMemberAdded);
         socket.on("lists:created", onCreated);
         socket.on("lists:updated", onUpdated);
         socket.on("lists:deleted", onDeleted);
         socket.on("topics:updated", onTopicUpdated);
+        socket.on("users:profile", onUserProfile);
+        socket.on("me:profile", onMeProfile);
 
         return () => {
             socket.emit("leave:topic", slug);
@@ -102,6 +132,8 @@ export default function TopicPage() {
             socket.off("lists:updated", onUpdated);
             socket.off("lists:deleted", onDeleted);
             socket.off("topics:updated", onTopicUpdated);
+            socket.off("users:profile", onUserProfile);
+            socket.off("me:profile", onMeProfile);
         };
     }, [slug, topic?.id]);
 
@@ -637,7 +669,11 @@ export default function TopicPage() {
                         {members.slice(0, Math.min(3, members.length)).map((m) => (
                             <img
                                 key={m.id}
-                                src={toImgSrc(m.profile_image) || `https://i.pravatar.cc/40?u=${m.id}`}
+                                src={
+                                    avatarUrlMap[m.id]                                  // ถ้ามี URL ที่ bust cache ให้ใช้ก่อน
+                                    || (m.profile_image && toImgSrc(m.profile_image))   // fallback: path จาก DB
+                                    || `https://i.pravatar.cc/40?u=${m.id}`             // สำรองสุดท้าย
+                                }
                                 alt={m.username}
                                 title={m.username}
                             />
@@ -754,6 +790,7 @@ export default function TopicPage() {
                 isOwner={isOwner}
                 ownerId={topic?.owner_id ?? topic?.created_by}
                 onRemoveMember={removeMember}
+                avatarUrlMap={avatarUrlMap}
             />
 
             <ViewListModal
@@ -988,6 +1025,7 @@ function MembersModal({
     isOwner = false,
     ownerId,
     onRemoveMember,
+    avatarUrlMap = {},
 }) {
     const dialogId = "members-modal-title";
     const overlayRef = useRef(null);
@@ -1078,7 +1116,11 @@ function MembersModal({
                                 <div className={styles.avatarItem} key={m.id}>
                                     <img
                                         className={styles.avatarImgLg}
-                                        src={(m.profile_image && toImgSrc(m.profile_image)) || `https://i.pravatar.cc/100?u=${m.id}`}
+                                        src={
+                                            avatarUrlMap[m.id]
+                                            || (m.profile_image && toImgSrc(m.profile_image))
+                                            || `https://i.pravatar.cc/100?u=${m.id}`
+                                        }
                                         alt={m.username}
                                     />
                                     {isOwner && m.id !== ownerId && (
