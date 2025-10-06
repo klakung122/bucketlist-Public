@@ -28,15 +28,15 @@ app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.use("/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 
-app.use("/topics", requireAuth, topicsRouter);
+app.use("/api/topics", requireAuth, topicsRouter);
 
-app.use(inviteRoutes);
+app.use("/api", inviteRoutes);
 
-app.use("/lists", requireAuth, listsRouter);
+app.use("/api/lists", requireAuth, listsRouter);
 
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 initSocket(server, {
     origin: ORIGIN,

@@ -1,6 +1,7 @@
 // web/app/join/[token]/page.jsx
 "use client";
 import { useEffect, useState } from "react";
+import { API_BASE } from "@/lib/api";
 
 export default function JoinPage({ params }) {
     const { token } = params;
@@ -10,7 +11,7 @@ export default function JoinPage({ params }) {
         (async () => {
             try {
                 const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/invites/${token}/accept`,
+                    `${API_BASE}/invites/${token}/accept`,
                     {
                         method: "POST",
                         credentials: "include",
