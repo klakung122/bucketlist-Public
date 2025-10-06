@@ -5,22 +5,27 @@ import s from "@/styles/settings.module.css";
 import { API_BASE } from "@/lib/api";
 import { absolutize } from "@/utils/url";
 import Swal from "sweetalert2";
+import { FaPen, FaTrash } from "react-icons/fa";
 
 export default function SettingsPage({
     onUploadAvatar,      // (file: File) => Promise<string>
     onChangePassword,    // ({ currentPassword, newPassword }) => Promise<void>
 }) {
+    const [hydrated, setHydrated] = useState(false);
     // ---- Avatar ----
     const fileRef = useRef(null);
     const [avatarPreview, setAvatarPreview] = useState(null);
     const [avatarUrl, setAvatarUrl] = useState("");
     const [avatarLoading, setAvatarLoading] = useState(false);
     const [me, setMe] = useState(null);
+    const [meLoading, setMeLoading] = useState(true);
     const [editOpen, setEditOpen] = useState(false);
     const [editingTopic, setEditingTopic] = useState(null);
     const [editTitle, setEditTitle] = useState("");
     const [editLoading, setEditLoading] = useState(false);
     const [editDesc, setEditDesc] = useState("");
+
+    useEffect(() => { setHydrated(true); }, []);
 
     const openEdit = (topic) => {
         setEditingTopic(topic);
@@ -100,7 +105,10 @@ export default function SettingsPage({
                 if (!alive) return;
                 setMe(json?.user || null);
                 setAvatarUrl(json?.user?.profile_image || "");
-            } catch { }
+            } catch {
+            } finally {
+                if (alive) setMeLoading(false);
+            }
         })();
         return () => { alive = false; };
     }, []);
@@ -149,10 +157,9 @@ export default function SettingsPage({
 
     // ---- Topic (จัดการหัวข้อ) ----
     const [topics, setTopics] = useState([]);
-    const [loadingTopics, setLoadingTopics] = useState(false);
+    const [loadingTopics, setLoadingTopics] = useState(true);
 
     const loadTopics = async () => {
-        setLoadingTopics(true);
         try {
             const res = await fetch(`${API_BASE}/topics/owned`, {
                 credentials: "include",
@@ -220,16 +227,20 @@ export default function SettingsPage({
                 <h2 className={s.cardTitle}>รูปโปรไฟล์</h2>
 
                 <div className={s.avatarRow}>
-                    <img
-                        className={s.avatar}
-                        src={
-                            avatarPreview
-                            || (avatarUrl ? absolutize(avatarUrl) : null)
-                            || (me ? `https://i.pravatar.cc/120?u=${encodeURIComponent(me.id)}` : null)
-                            || "/no-image.png"
-                        }
-                        alt="avatar"
-                    />
+                    {(!hydrated || meLoading) ? (
+                        <div className={s.avatarSkel} aria-hidden="true" />
+                    ) : (
+                        <img
+                            className={s.avatar}
+                            src={
+                                avatarPreview
+                                || (avatarUrl ? absolutize(avatarUrl) : null)
+                                || (me ? `https://i.pravatar.cc/120?u=${encodeURIComponent(me.id)}` : null)
+                                || "/no-image.png"
+                            }
+                            alt="avatar"
+                        />
+                    )}
                     <div className={s.avatarBtns}>
                         <input
                             ref={fileRef}
@@ -323,7 +334,17 @@ export default function SettingsPage({
             <section className={s.card}>
                 <h2 className={s.cardTitle}>จัดการหัวข้อ</h2>
                 {loadingTopics ? (
-                    <p>กำลังโหลด...</p>
+                    <ul className={s.list} aria-busy="true" aria-live="polite">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <li key={i} className={`${s.item} ${s.topicSkelItem}`}>
+                                <span className={s.skelLine} aria-hidden="true" />
+                                <div className={s.skelActions} aria-hidden="true">
+                                    <span className={s.skelIcon} />
+                                    <span className={s.skelIcon} />
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 ) : topics.length === 0 ? (
                     <p className={s.hint}>ยังไม่มีหัวข้อ</p>
                 ) : (
@@ -340,7 +361,7 @@ export default function SettingsPage({
                                             aria-label="แก้ไขรายการ"
                                             title="แก้ไข"
                                         >
-                                            ✏️
+                                            <FaPen />
                                         </button>
                                         <button
                                             type="button"
@@ -349,7 +370,7 @@ export default function SettingsPage({
                                             aria-label="ลบรายการ"
                                             title="ลบ"
                                         >
-                                            🗑️
+                                            <FaTrash />
                                         </button>
                                     </div>
                                 </div>

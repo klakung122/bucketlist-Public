@@ -56,6 +56,46 @@
     margin-bottom: 12px;
 }
 
+.skeletonItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #faf5ff;
+    border: 1px solid #f3e8ff;
+    position: relative;
+    overflow: hidden;
+}
+
+.skelLines {
+    flex: 1;
+}
+
+.skelLine {
+    display: block;
+    height: 12px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #f5f3ff 0%, #ede9fe 50%, #f5f3ff 100%);
+    animation: shimmer 1.2s infinite;
+    margin-bottom: 8px;
+}
+
+/* ถ้าต้องการให้แถบทั้งแถวมีเอฟเฟกต์วิ่งนุ่ม ๆ */
+@keyframes shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+
+    100% {
+        background-position: 200px 0;
+    }
+}
+
+.skelLine {
+    background-size: 400px 100%;
+}
+
 .topicLink {
     display: block;
     padding: 12px 16px;

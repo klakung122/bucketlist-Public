@@ -216,6 +216,114 @@
     border-color: #d1d5db;
 }
 
+/* ===== Skeleton base ===== */
+@keyframes shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+
+    100% {
+        background-position: 200px 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ._noAnim {
+        animation: none !important;
+    }
+}
+
+/* ใส่เอฟเฟกต์ตรง ๆ ให้ทุก skeleton target */
+.skel,
+.avatarSkel,
+.nameSkel,
+.emailSkel,
+.skelDot,
+.skelLine {
+    background: linear-gradient(90deg, #f5f3ff 0%, #ede9fe 50%, #f5f3ff 100%);
+    background-size: 400px 100%;
+    animation: shimmer 1.2s infinite linear;
+}
+
+/* ===== Profile skeleton ===== */
+.profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.profileText {
+    display: grid;
+    gap: 4px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    object-fit: cover;
+}
+
+.avatarSkel {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    border: 1px solid #ede9fe;
+}
+
+.nameSkel {
+    width: 120px;
+    height: 14px;
+    border-radius: 6px;
+}
+
+.emailSkel {
+    width: 160px;
+    height: 12px;
+    border-radius: 6px;
+}
+
+.name {
+    font-weight: 700;
+}
+
+.email {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+/* ===== Topic list skeleton ===== */
+.topicList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.topicSkeleton {
+    display: grid;
+    grid-template-columns: 8px 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 10px;
+    border-radius: 10px;
+    border: 1px solid #f3e8ff;
+    background: #faf5ff;
+}
+
+.skelDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    border: 1px solid #ede9fe;
+}
+
+.skelLine {
+    height: 12px;
+    border-radius: 8px;
+}
+
 /* --- Mobile overlay mode --- */
 @media (max-width: 768px) {
     .sidebar {

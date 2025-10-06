@@ -11,6 +11,13 @@
     margin-bottom: 16px;
 }
 
+.loading {
+    display: flex;
+    align-self: stretch;
+    justify-content: center;
+
+}
+
 .title {
     display: flex;
     align-items: center;
@@ -83,6 +90,7 @@
     border-radius: 12px;
     color: #fff;
     font-weight: 700;
+    font-size: 14px;
     padding: 8px 11px;
     display: flex;
     align-items: center;
@@ -140,32 +148,33 @@
 
 /* ปุ่ม action */
 .actionBtn {
-    background: #fffbc7;
-    /* เทาอ่อน */
-    border: 1px solid #fff89d;
+    display: flex;
+    align-items: center;
+    background: #fcedc4;
+    border: 1px solid #ffd89d;
     border-radius: 6px;
-    padding: 4px 8px;
+    padding: 7px 8px;
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
+    color: rgb(255, 174, 0);
 }
 
 .actionBtn:hover {
-    background: #fff9a9;
-    /* hover ฟ้าอ่อน */
-    border-color: #fff785;
+    background: #fde5a4;
+    border-color: #ffcd82;
 }
 
 /* ถ้าอยากแยกสีให้ปุ่มลบ */
 .actionBtn:last-child {
     background: #ffbaba;
     border-color: #ff9191;
+    color: rgb(255, 85, 85);
 }
 
 .actionBtn:last-child:hover {
     background: #ff9191;
     border-color: rgb(255, 100, 100);
-    color: white;
 }
 
 .circle {
@@ -228,12 +237,13 @@
 /* Button */
 .inviteBtn {
     display: flex;
-    gap: 8px;
+    gap: 5px;
     align-items: center;
     background: linear-gradient(90deg, #60a5fa, #a78bfa, #f9a8d4);
     border: none;
     border-radius: 9999px;
     color: #fff;
+    font-size: 14px;
     font-weight: 600;
     padding: 10px 20px;
     cursor: pointer;
@@ -602,6 +612,29 @@
 
 .cancelBtn:hover {
     filter: brightness(0.98);
+}
+
+.progress {
+    background: #f3e8ff;
+    border-radius: 9999px;
+    width: 100%;
+    max-width: 100vh;
+    margin: 16px auto;
+    overflow: hidden;
+    outline: 2px solid #e9d5ff;
+}
+
+.progressBar {
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    color: #fff;
+    text-align: center;
+    font-size: .9rem;
+    font-weight: 700;
+    padding: 6px 0;
+    border-radius: 9999px;
+    transition: width .3s ease;
+    min-width: 32px;
+    white-space: nowrap;
 }
 
 @media (max-width: 768px) {

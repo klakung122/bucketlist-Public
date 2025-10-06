@@ -8,6 +8,7 @@ import { socket } from "@/lib/socket";
 
 export default function HomePage() {
     const [topics, setTopics] = useState([]);
+    const [topicsLoading, setTopicsLoading] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
     const [newTopic, setNewTopic] = useState("");
     const [newDesc, setNewDesc] = useState("");
@@ -19,12 +20,15 @@ export default function HomePage() {
         let alive = true;
         (async () => {
             try {
+                setTopicsLoading(true);
                 const res = await fetch(`${API_BASE}/topics`, { credentials: "include" });
                 const json = await res.json();
                 if (!alive) return;
                 if (json.ok) setTopics(json.data); // เก็บทั้ง object
             } catch (e) {
                 console.error(e);
+            } finally {
+                if (alive) setTopicsLoading(false);
             }
         })();
         return () => { alive = false; };
@@ -129,7 +133,17 @@ export default function HomePage() {
             {/* Box: Topics List */}
             <div className={styles.box}>
                 <h2 className={styles.boxTitle}>รายการหัวข้อ</h2>
-                {topics.length === 0 ? (
+                {topicsLoading ? (
+                    <ul className={styles.list} aria-busy="true" aria-live="polite">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                            <li key={i} className={`${styles.item} ${styles.skeletonItem}`}>
+                                <div className={styles.skelLines}>
+                                    <span className={styles.skelLine} />
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : topics.length === 0 ? (
                     <p className={styles.empty}>ยังไม่มีหัวข้อ ✨</p>
                 ) : (
                     <ul className={styles.list}>

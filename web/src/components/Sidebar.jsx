@@ -18,11 +18,14 @@ const buildPravatar = (user) => {
 };
 
 export default function Sidebar({ isOpen = false, isMobile = false, onClose = () => { } }) {
+    const [hydrated, setHydrated] = useState(false);
     const pathname = usePathname();
     const { user, loading: userLoading } = useMe();
 
     const [topics, setTopics] = useState([]);
-    const [topicsLoading, setTopicsLoading] = useState(false);
+    const [topicsLoading, setTopicsLoading] = useState(true);
+    const [hasFetched, setHasFetched] = useState(false);
+    const showTopicsSkeleton = hydrated ? topicsLoading : true;
 
     const isActive = (href) => pathname === href || pathname?.startsWith(href + "/");
 
@@ -31,7 +34,6 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
         let alive = true;
         (async () => {
             try {
-                setTopicsLoading(true);
                 const res = await fetch(`${API_BASE}/topics`, { credentials: "include" });
                 const json = await res.json();
                 if (!alive) return;
@@ -44,7 +46,10 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
                 console.error("Load topics failed:", e);
                 setTopics([]);
             } finally {
-                if (alive) setTopicsLoading(false);
+                if (alive) {
+                    setTopicsLoading(false);
+                    setHasFetched(true);
+                }
             }
         })();
         return () => {
@@ -93,6 +98,14 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
         window.location.href = "/login";
     }, []);
 
+    useEffect(() => {
+        // จะทำให้เฟรมแรกของ client มี DOM เหมือนที่ SSR เรนเดอร์
+        setHydrated(true);
+    }, []);
+
+    // ให้เฟรมแรก (hydrated=false) แสดง skeleton เสมอ เพื่อให้ SSR == Client
+    const showProfileSkeleton = hydrated ? userLoading : true;
+
     const pravatar = buildPravatar(user);
 
     const avatarSrc = userLoading
@@ -124,23 +137,34 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
 
                 {/* Profile */}
                 <div className={s.profile}>
-                    <img src={avatarSrc} alt="โปรไฟล์" className={s.avatar} loading="lazy" />
-                    <div>
-                        {userLoading ? (
-                            <div className={s.name}>กำลังโหลด…</div>
-                        ) : user ? (
-                            <div className={s.name}>{user.username}</div>
-                        ) : (
-                            <>
-                                <div className={s.name}>ผู้เยี่ยมชม</div>
-                                <div className={s.email}>
-                                    <Link href="/login" className={s.link}>
-                                        เข้าสู่ระบบ
-                                    </Link>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    {showProfileSkeleton ? (
+                        <>
+                            <div className={s.avatarSkel} aria-hidden="true" />
+                            <div className={s.profileText}>
+                                <div className={s.nameSkel} aria-hidden="true" />
+                                <div className={s.emailSkel} aria-hidden="true" />
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <img src={avatarSrc} alt="โปรไฟล์" className={s.avatar} loading="lazy" />
+                            <div className={s.profileText}>
+                                {user ? (
+                                    <>
+                                        <div className={s.name}>{user.username}</div>
+                                        {user.email && <div className={s.email}>{user.email}</div>}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className={s.name}>ผู้เยี่ยมชม</div>
+                                        <div className={s.email}>
+                                            <Link href="/login" className={s.link}>เข้าสู่ระบบ</Link>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* Main nav */}
@@ -157,20 +181,26 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
                     <span>หัวข้อของฉัน</span>
                 </div>
 
-                <ul className={s.topicList}>
-                    {topicsLoading && (
+                <ul className={s.topicList}
+                    aria-busy={showTopicsSkeleton ? "true" : "false"}
+                    aria-live="polite"
+                >
+                    {showTopicsSkeleton && (
                         <>
-                            <li className={s.topicSkeleton} />
-                            <li className={s.topicSkeleton} />
-                            <li className={s.topicSkeleton} />
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <li key={i} className={s.topicSkeleton}>
+                                    <span className={s.skelDot} aria-hidden="true" />
+                                    <span className={s.skelLine} aria-hidden="true" />
+                                </li>
+                            ))}
                         </>
                     )}
 
-                    {!topicsLoading && topics.length === 0 && (
+                    {!showTopicsSkeleton && hasFetched && topics.length === 0 && (
                         <li className={s.topicEmpty}>ยังไม่มีหัวข้อ</li>
                     )}
 
-                    {!topicsLoading &&
+                    {!showTopicsSkeleton &&
                         topics.map((t) => {
                             // รองรับกรณีไม่มี slug (fallback เป็น id)
                             const slug = t.slug || t.id;
@@ -203,7 +233,7 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
                         <span>Logout</span>
                     </button>
                 </div>
-            </aside>
+            </aside >
         </>
     );
 }

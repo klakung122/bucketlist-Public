@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Swal from "sweetalert2";
-import { FaPlus, FaCheck } from "react-icons/fa";
+import { FaPlus, FaCheck, FaPen, FaTrash } from "react-icons/fa";
 import { MdOutlineChecklist } from "react-icons/md";
 import styles from "@/styles/topic.module.css";
 import { API_BASE } from "@/lib/api";
@@ -580,7 +580,17 @@ export default function TopicPage() {
         }
     }, [lists, slug]);
 
-    if (!topic) return <h1 className={styles.title}>กำลังโหลด...</h1>;
+    const { total, doneCount, percent } = useMemo(() => {
+        const t = lists.length;
+        const d = lists.reduce((acc, it) => acc + (it.done ? 1 : 0), 0);
+        return {
+            total: t,
+            doneCount: d,
+            percent: t ? Math.round((d * 100) / t) : 0,
+        };
+    }, [lists]);
+
+    if (!topic) return <div className={styles.loading}><h1 className={styles.title}>กำลังโหลด...</h1></div>;
 
     return (
         <div className={styles.container}>
@@ -647,7 +657,7 @@ export default function TopicPage() {
                     {/* ปุ่มสร้างลิงก์: แสดงเฉพาะ owner */}
                     {isOwner && (
                         <button onClick={createInvite} className={styles.inviteBtn}>
-                            ➕ สร้างลิงก์เชิญ
+                            <FaPlus /> สร้างลิงก์เชิญ
                         </button>
                     )}
                 </div>
@@ -661,8 +671,31 @@ export default function TopicPage() {
                         className={styles.editBtn}
                         onClick={() => setEditMode(prev => !prev)}
                     >
-                        {editMode ? "✅ เสร็จสิ้น" : "✏️ แก้ไข"}
+                        {editMode ? (
+                            <>
+                                <FaCheck />
+                                เสร็จสิ้น
+                            </>
+                        ) : (
+                            <>
+                                <FaPen /> แก้ไข
+                            </>
+                        )}
                     </button>
+                </div>
+
+                <div
+                    className={styles.progress}
+                    role="progressbar"
+                    aria-valuenow={percent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="ความคืบหน้าลิสต์ทั้งหมด"
+                    title={`เสร็จแล้ว ${doneCount}/${total} • ${percent}%`}
+                >
+                    <div className={styles.progressBar} style={{ width: `${percent}%` }}>
+                        {percent}%
+                    </div>
                 </div>
 
                 {topic?.description && (
@@ -695,7 +728,7 @@ export default function TopicPage() {
                                             aria-label="แก้ไขรายการ"
                                             title="แก้ไข"
                                         >
-                                            ✏️
+                                            <FaPen />
                                         </button>
                                         <button
                                             type="button"
@@ -704,7 +737,7 @@ export default function TopicPage() {
                                             aria-label="ลบรายการ"
                                             title="ลบ"
                                         >
-                                            🗑️
+                                            <FaTrash />
                                         </button>
                                     </div>
                                 )}
