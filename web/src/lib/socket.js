@@ -1,8 +1,7 @@
 // web/lib/socket.js
 import { io } from "socket.io-client";
-import { API_BASE } from "@/lib/api";
 
-export const socket = io(API_BASE, {
+export const socket = io(process.env.NEXT_PUBLIC_API_BASE, {
     path: "/socket.io",
     withCredentials: true,
     autoConnect: false,
