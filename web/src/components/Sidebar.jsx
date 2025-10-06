@@ -8,8 +8,8 @@ import s from "@/styles/sidebar.module.css";
 import { useMe } from "@/hooks/useMe";
 import { useEffect, useState, useCallback } from "react";
 import { API_BASE } from "@/lib/api";
-import { absolutize } from "@/utils/url";
 import { socket } from "@/lib/socket";
+import { toImgSrc } from "@/lib/img";
 
 const buildPravatar = (user) => {
     if (!user) return null;
@@ -108,10 +108,20 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
 
     const pravatar = buildPravatar(user);
 
+    // อย่าใช้ absolutize กับ path รูป ให้ normalize เองแทน
+
+    const toImgSrc = (v) => {
+        if (!v) return "";
+        if (typeof v !== "string") v = String(v);
+        if (/^https?:\/\//i.test(v)) return v; // URL เต็ม
+        // บังคับให้เป็น absolute path เสมอ เช่น "/uploads/avatars/.."
+        return "/" + v.replace(/^\/+/, "");
+    };
+
     const avatarSrc = userLoading
         ? "/no-image.png"
         : (user?.profile_image?.trim()
-            ? absolutize(user.profile_image.trim())
+            ? toImgSrc(user.profile_image.trim())
             : (pravatar || "/no-image.png"));
 
     return (

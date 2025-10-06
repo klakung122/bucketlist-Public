@@ -6,8 +6,8 @@ import { FaPlus, FaCheck, FaPen, FaTrash } from "react-icons/fa";
 import { MdOutlineChecklist } from "react-icons/md";
 import styles from "@/styles/topic.module.css";
 import { API_BASE } from "@/lib/api";
-import { absolutize } from "@/utils/url";
 import { socket } from "@/lib/socket";
+import { toImgSrc } from "@/lib/img";
 
 export default function TopicPage() {
     const { slug } = useParams();
@@ -637,7 +637,7 @@ export default function TopicPage() {
                         {members.slice(0, Math.min(3, members.length)).map((m) => (
                             <img
                                 key={m.id}
-                                src={absolutize(m.profile_image) || `https://i.pravatar.cc/40?u=${m.id}`}
+                                src={toImgSrc(m.profile_image) || `https://i.pravatar.cc/40?u=${m.id}`}
                                 alt={m.username}
                                 title={m.username}
                             />
@@ -1078,7 +1078,7 @@ function MembersModal({
                                 <div className={styles.avatarItem} key={m.id}>
                                     <img
                                         className={styles.avatarImgLg}
-                                        src={(m.profile_image && absolutize(m.profile_image)) || `https://i.pravatar.cc/100?u=${m.id}`}
+                                        src={(m.profile_image && toImgSrc(m.profile_image)) || `https://i.pravatar.cc/100?u=${m.id}`}
                                         alt={m.username}
                                     />
                                     {isOwner && m.id !== ownerId && (

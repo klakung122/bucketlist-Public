@@ -5,6 +5,7 @@ import s from "@/styles/settings.module.css";
 import { API_BASE } from "@/lib/api";
 import Swal from "sweetalert2";
 import { FaPen, FaTrash } from "react-icons/fa";
+import { toImgSrc } from "@/lib/img";
 
 export default function SettingsPage({
     onUploadAvatar,      // (file: File) => Promise<string>
@@ -60,12 +61,6 @@ export default function SettingsPage({
         e.preventDefault();
         const f = e.dataTransfer.files?.[0];
         if (f) handleFile(f);
-    };
-
-    const toImgSrc = (v) => {
-        if (!v) return "";
-        if (/^https?:\/\//.test(v)) return v;     // URL เต็ม
-        return "/" + String(v).replace(/^\/+/, ""); // บังคับขึ้นต้นด้วย /
     };
 
     const uploadAvatar = async () => {
