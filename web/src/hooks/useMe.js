@@ -1,6 +1,7 @@
 // web/src/hooks/useMe.js
 "use client";
 import { useEffect, useState } from "react";
+import { API_BASE } from "@/lib/api";
 
 export function useMe() {
     const [user, setUser] = useState(null);   // {id, username, email, profile_image}
@@ -10,7 +11,7 @@ export function useMe() {
         let mounted = true;
         (async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+                const res = await fetch(`${API_BASE}/auth/me`, {
                     credentials: "include",
                 });
                 if (!mounted) return;
