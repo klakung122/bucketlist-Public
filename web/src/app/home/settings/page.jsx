@@ -18,6 +18,7 @@ export default function SettingsPage({
     const [avatarUrl, setAvatarUrl] = useState("");
     const [avatarLoading, setAvatarLoading] = useState(false);
     const [me, setMe] = useState(null);
+    const isGoogle = me?.provider === "google";
     const [meLoading, setMeLoading] = useState(true);
     const [editOpen, setEditOpen] = useState(false);
     const [editingTopic, setEditingTopic] = useState(null);
@@ -277,16 +278,20 @@ export default function SettingsPage({
                             accept="image/*"
                             className={s.hiddenFile}
                             onChange={onFileChange}
+                            disabled={isGoogle}
                         />
-                        <button className={s.btn} onClick={pickFile}>เลือกไฟล์</button>
+                        <button className={s.btn} onClick={pickFile} disabled={isGoogle}>
+                            เลือกไฟล์
+                        </button>
                         {avatarPreview && (
                             <>
-                                <button className={s.btnPrimary} onClick={uploadAvatar} disabled={avatarLoading}>
+                                <button className={s.btnPrimary} onClick={uploadAvatar} disabled={avatarLoading || isGoogle}>
                                     {avatarLoading ? "กำลังอัปโหลด..." : "อัปโหลด"}
                                 </button>
                                 <button
                                     className={s.btnGhost}
                                     onClick={() => { setAvatarPreview(null); fileRef.current.value = ""; }}
+                                    disabled={isGoogle}
                                 >
                                     ยกเลิกตัวอย่าง
                                 </button>
@@ -300,6 +305,7 @@ export default function SettingsPage({
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={onDrop}
                     aria-label="วางไฟล์รูปเพื่ออัปโหลด"
+                    style={isGoogle ? { opacity: .5, pointerEvents: "none" } : undefined}
                 >
                     ลากแล้ววางไฟล์รูปที่นี่ (สูงสุด 2MB)
                 </div>
@@ -307,57 +313,59 @@ export default function SettingsPage({
             </section>
 
             {/* Password */}
-            <section className={s.card}>
-                <h2 className={s.cardTitle}>เปลี่ยนรหัสผ่าน</h2>
-                <form className={s.form} onSubmit={submitPassword}>
-                    <label className={s.label}>
-                        รหัสผ่านปัจจุบัน
-                        <input
-                            type="password"
-                            className={s.input}
-                            value={currentPwd}
-                            onChange={(e) => setCurrentPwd(e.target.value)}
-                            autoComplete="current-password"
-                            required
-                        />
-                    </label>
+            {!isGoogle && (
+                <section className={s.card}>
+                    <h2 className={s.cardTitle}>เปลี่ยนรหัสผ่าน</h2>
+                    <form className={s.form} onSubmit={submitPassword}>
+                        <label className={s.label}>
+                            รหัสผ่านปัจจุบัน
+                            <input
+                                type="password"
+                                className={s.input}
+                                value={currentPwd}
+                                onChange={(e) => setCurrentPwd(e.target.value)}
+                                autoComplete="current-password"
+                                required
+                            />
+                        </label>
 
-                    <label className={s.label}>
-                        รหัสผ่านใหม่
-                        <input
-                            type="password"
-                            className={s.input}
-                            value={newPwd}
-                            onChange={(e) => setNewPwd(e.target.value)}
-                            autoComplete="new-password"
-                            required
-                        />
-                    </label>
+                        <label className={s.label}>
+                            รหัสผ่านใหม่
+                            <input
+                                type="password"
+                                className={s.input}
+                                value={newPwd}
+                                onChange={(e) => setNewPwd(e.target.value)}
+                                autoComplete="new-password"
+                                required
+                            />
+                        </label>
 
-                    <label className={s.label}>
-                        ยืนยันรหัสผ่านใหม่
-                        <input
-                            type="password"
-                            className={s.input}
-                            value={confirmPwd}
-                            onChange={(e) => setConfirmPwd(e.target.value)}
-                            autoComplete="new-password"
-                            required
-                        />
-                    </label>
+                        <label className={s.label}>
+                            ยืนยันรหัสผ่านใหม่
+                            <input
+                                type="password"
+                                className={s.input}
+                                value={confirmPwd}
+                                onChange={(e) => setConfirmPwd(e.target.value)}
+                                autoComplete="new-password"
+                                required
+                            />
+                        </label>
 
-                    <button className={s.btnPrimary} type="submit" disabled={pwdLoading}>
-                        {pwdLoading ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-                    </button>
+                        <button className={s.btnPrimary} type="submit" disabled={pwdLoading}>
+                            {pwdLoading ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
+                        </button>
 
-                    {pwdMsg && (
-                        <div className={pwdMsg.type === "success" ? s.alertSuccess : s.alertError}>
-                            {pwdMsg.text}
-                        </div>
-                    )}
-                </form>
-                <p className={s.hint}>อย่างน้อย 8 ตัวอักษร</p>
-            </section>
+                        {pwdMsg && (
+                            <div className={pwdMsg.type === "success" ? s.alertSuccess : s.alertError}>
+                                {pwdMsg.text}
+                            </div>
+                        )}
+                    </form>
+                    <p className={s.hint}>อย่างน้อย 8 ตัวอักษร</p>
+                </section>
+            )}
 
             {/* Topics */}
             <section className={s.card}>

@@ -9,6 +9,8 @@ export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [msg, setMsg] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [gLoading, setGLoading] = useState(false);
 
     const onSubmit = async (e) => {
         e.preventDefault();
@@ -35,6 +37,12 @@ export default function LoginPage() {
         }
     };
 
+    const onGoogleClick = () => {
+        setGLoading(true);
+        // ส่งผู้ใช้ไปเริ่ม OAuth ที่ backend
+        window.location.href = `${API_BASE}/auth/google`;
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.card}>
@@ -49,6 +57,7 @@ export default function LoginPage() {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
+                        disabled={loading || gLoading}
                     />
                     <input
                         type="password"
@@ -57,12 +66,28 @@ export default function LoginPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        disabled={loading || gLoading}
                     />
-
-                    <button type="submit" className={styles.submitBtn}>
-                        เข้าสู่ระบบ
+                    <button
+                        type="submit"
+                        className={styles.submitBtn}
+                        disabled={loading || gLoading}
+                    >
+                        {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
                     </button>
                 </form>
+
+                <div className={styles.divider}><span>หรือ</span></div>
+
+                <button
+                    className={styles.googleBtn}
+                    onClick={onGoogleClick}
+                    disabled={loading || gLoading}
+                    aria-label="Sign in with Google"
+                >
+                    <img src="/google-logo.png" alt="" width={18} height={18} />
+                    {gLoading ? "กำลังไปที่ Google..." : "Sign in with Google"}
+                </button>
 
                 {msg && (
                     <p

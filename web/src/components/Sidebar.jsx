@@ -164,8 +164,14 @@ export default function Sidebar({ isOpen = false, isMobile = false, onClose = ()
                             <div className={s.profileText}>
                                 {user ? (
                                     <>
-                                        <div className={s.name}>{user.username}</div>
-                                        {user.email && <div className={s.email}>{user.email}</div>}
+                                        <div className={`${s.name} ${s.ellipsis}`} title={user.username}>
+                                            {user.username}
+                                        </div>
+                                        {user.email && (
+                                            <div className={`${s.email} ${s.ellipsis}`} title={user.email}>
+                                                {user.email}
+                                            </div>
+                                        )}
                                     </>
                                 ) : (
                                     <>

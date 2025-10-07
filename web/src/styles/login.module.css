@@ -83,3 +83,86 @@
 .link:hover {
     text-decoration: underline;
 }
+
+.divider {
+    position: relative;
+    text-align: center;
+    margin: 16px 0 12px;
+}
+
+.divider::before {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto 0;
+    transform: translateY(-50%);
+    height: 1px;
+    background: var(--line, #eee);
+}
+
+.divider>span {
+    position: relative;
+    padding: 0 10px;
+    font-size: 12px;
+    color: #6b7280;
+    background: var(--card-bg, #fff);
+    border-radius: 999px;
+}
+
+/* --- ปุ่ม Google สวย ๆ --- */
+.googleBtn {
+    --ring: 0 0 0 0 rgba(66, 133, 244, 0);
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #3c4043;
+
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: .2px;
+
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+    transition: background .15s ease, box-shadow .2s ease, transform .02s ease, border-color .15s ease;
+    cursor: pointer;
+}
+
+.googleBtn img {
+    display: block;
+    margin: 0;
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+    /* ป้องกันเบลอในบางเบราว์เซอร์ */
+}
+
+/* Hover: ขอบเข้มขึ้น เงาชัดนิด ๆ */
+.googleBtn:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #dfe3e7;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+}
+
+/* Active: กดแล้วจมลงนิดนึง */
+.googleBtn:active:not(:disabled) {
+    transform: translateY(1px);
+    background: #f1f5f9;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+
+/* Focus ring โทนน้ำเงินสวย แบบ Material-ish */
+.googleBtn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 2px #fff,
+        0 0 0 4px rgba(66, 133, 244, .55);
+}
+
+/* Disabled */
+.googleBtn:disabled {
+    opacity: .65;
+    cursor: not-allowed;
+}

@@ -7,7 +7,9 @@ import cookie from "cookie";
 import { requireAuth } from "../middlewares/requireAuth.js";
 import multer from "multer";
 import path from "path";
+import fetch from "node-fetch";
 import fs from "fs";
+import sharp from "sharp";
 import { getIo, userRoom, topicRoom } from "../socket.js";
 
 const router = Router();
@@ -124,7 +126,7 @@ router.get("/me", async (req, res) => {
         const payload = jwt.verify(token, process.env.JWT_SECRET || "changeme");
         const conn = await pool.getConnection();
         const [rows] = await conn.execute(
-            "SELECT id, username, email, profile_image FROM users WHERE id = ?",
+            "SELECT id, username, email, profile_image, provider, provider_sub FROM users WHERE id = ?",
             [payload.id]
         );
         conn.release();
@@ -313,6 +315,180 @@ router.post("/avatar", requireAuth, upload.single("avatar"), async (req, res) =>
         return res.status(500).json({ message: "อัปโหลดไม่สำเร็จ" });
     } finally {
         conn.release();
+    }
+});
+
+router.get("/google", (req, res) => {
+    const state = crypto.randomUUID();
+    // ถ้าจะป้องกัน CSRF เต็มรูปแบบ: เก็บ state ในเซสชัน/redis แล้วตรวจใน callback
+    const params = new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+        response_type: "code",
+        scope: "openid email profile",
+        access_type: "offline",
+        prompt: "consent",
+        state,
+    });
+
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+const MAX_W = 512;
+const MAX_H = 512;
+const DEFAULT_QUALITY = 82;
+
+function normalizeGooglePhotoUrl(url) {
+    if (!url) return url;
+    try {
+        const u = new URL(url);
+        if (u.searchParams.has("sz")) u.searchParams.set("sz", String(MAX_W));
+        u.pathname = u.pathname.replace(/\/s\d+-c\//, `/s${MAX_W}-c/`);
+        return u.toString();
+    } catch { return url; }
+}
+
+async function downloadAndSaveGoogleAvatar(url, userId) {
+    if (!url) return null;
+    const src = normalizeGooglePhotoUrl(url);
+
+    const r = await fetch(src, { headers: { "User-Agent": "Bucketlist/1.0" } });
+    if (!r.ok) throw new Error("FETCH_GOOGLE_AVATAR_FAILED");
+
+    const inputBuf = Buffer.from(await r.arrayBuffer());
+
+    // ตั้งชื่อใหม่ทุกครั้งด้วย timestamp
+    const filename = `u${userId}_google_${Date.now()}.webp`;
+    const absPath = path.join(uploadDir, filename);
+
+    try {
+        const out = await sharp(inputBuf)
+            .rotate()
+            .resize({ width: MAX_W, height: MAX_H, fit: "cover", position: "centre" })
+            .webp({ quality: DEFAULT_QUALITY })
+            .toBuffer();
+
+        await fs.promises.writeFile(absPath, out);
+        return `/uploads/avatars/${filename}`;
+    } catch (err) {
+        // fallback ถ้า sharp พัง
+        const fallback = `u${userId}_google_${Date.now()}.jpg`;
+        await fs.promises.writeFile(path.join(uploadDir, fallback), inputBuf);
+        return `/uploads/avatars/${fallback}`;
+    }
+}
+
+// callback หลัง Google ส่ง code กลับมา
+router.get("/google/callback", async (req, res) => {
+    try {
+        const { code } = req.query;
+        if (!code) return res.status(400).send("Missing code");
+
+        // แลก code -> tokens
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                code,
+                client_id: process.env.GOOGLE_CLIENT_ID,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+                grant_type: "authorization_code",
+            }),
+        });
+
+        if (!tokenRes.ok) {
+            const t = await tokenRes.text();
+            console.error("Token exchange failed:", t);
+            return res.status(502).send("Google token exchange failed");
+        }
+        const tokenData = await tokenRes.json();
+
+        // ขอข้อมูลผู้ใช้จาก Google
+        const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        if (!userInfoRes.ok) {
+            const t = await userInfoRes.text();
+            console.error("Userinfo failed:", t);
+            return res.status(502).send("Google userinfo failed");
+        }
+        const profile = await userInfoRes.json();
+        // คาดหวัง: { sub, email, name, picture, ... }
+        if (!profile?.email || !profile?.sub) {
+            console.error("Profile missing email/sub:", profile);
+            return res.status(400).send("Google profile incomplete");
+        }
+
+        // upsert by email (วิธี A)
+        const [rows] = await pool.query(
+            "SELECT id, email, profile_image FROM users WHERE email = ? LIMIT 1",
+            [profile.email]
+        );
+
+        if (rows.length > 0) {
+            // มีผู้ใช้อยู่แล้ว → อัปเดตให้เป็นบัญชี google และอัปเดตรูป/เวลาเข้าใช้
+            await pool.query(
+                `UPDATE users
+          SET username = ?, provider = 'google',
+              provider_sub = ?, updated_at = NOW(), last_login = NOW()
+        WHERE id = ?`,
+                [profile.name || profile.email, profile.sub, rows[0].id]
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO users (username, email, password, profile_image, provider, provider_sub, created_at, updated_at, last_login)
+       VALUES (?, ?, NULL, NULL, 'google', ?, NOW(), NOW(), NOW())`,
+                [profile.name || profile.email, profile.email, profile.sub]
+            );
+        }
+
+        // อ่าน user สำหรับออก JWT
+        const [rows2] = await pool.query(
+            "SELECT id, username, email, profile_image FROM users WHERE email = ? LIMIT 1",
+            [profile.email]
+        );
+        const user = rows2[0];
+
+        // ✅ ดาวน์โหลดรูปจาก Google → เซฟลง /uploads/avatars → ได้ "พาธภายในระบบ"
+        const currentImg = user.profile_image || "";
+        const wasLocal = currentImg.startsWith("/uploads/avatars/");
+
+        try {
+            const newRelPath = await downloadAndSaveGoogleAvatar(profile.picture, user.id);
+            if (newRelPath) {
+                // 1) อัปเดตให้ชี้ไฟล์ใหม่
+                await pool.query("UPDATE users SET profile_image = ? WHERE id = ?", [newRelPath, user.id]);
+
+                // 2) ถ้าไฟล์เดิมเป็น local และไม่ใช่ไฟล์เดียวกับที่เพิ่งเซฟ → ลบทิ้ง
+                if (wasLocal && currentImg !== newRelPath) {
+                    safeUnlinkAvatar(currentImg);
+                }
+            }
+        } catch (e) {
+            console.warn("DOWNLOAD_GOOGLE_AVATAR_FAIL:", e?.message);
+        }
+
+        // ออก JWT
+        const appJwt = jwt.sign(
+            { id: user.id, username: user.username, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        // ส่ง cookie (โปรดักชันควรเป็น https + sameSite=None)
+        res.cookie("token", appJwt, {
+            httpOnly: true,
+            sameSite: "none",
+            secure: true,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        // กลับหน้าเว็บของคุณ
+        res.redirect(`${process.env.WEB_BASE_URL}/home`);
+    } catch (err) {
+        console.error("Google callback error:", err);
+        res.status(500).send("Internal error");
     }
 });
 
