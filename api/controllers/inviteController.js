@@ -29,7 +29,7 @@ export async function createInvite(req, res) {
         expiresAt,
     });
 
-    const inviteUrl = `${process.env.WEB_BASE_URL || "http://localhost:3000"}/join/${tokenPlain}`;
+    const inviteUrl = `${process.env.WEB_BASE_URL}/join/${tokenPlain}`;
     return res.json({
         ok: true,
         data: { invite_url: inviteUrl, max_uses: maxUses ?? null, expires_at: expiresAt },

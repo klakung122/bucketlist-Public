@@ -32,6 +32,8 @@ export default function TopicPage() {
     const [editLoading, setEditLoading] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
     const [avatarUrlMap, setAvatarUrlMap] = useState({});
+    const [inviteOpen, setInviteOpen] = useState(false);
+    const [inviteUrl, setInviteUrl] = useState("");
 
     // ✅ join/leave ห้องหัวข้อ + ฟังอีเวนต์ลิสต์
     useEffect(() => {
@@ -220,7 +222,6 @@ export default function TopicPage() {
         })();
     }, [slug, isOwner]);
 
-    // ปุ่มสร้างลิงก์: กันพลาดเช็คอีกชั้น
     const createInvite = async () => {
         if (!isOwner) {
             return Swal.fire({
@@ -239,9 +240,8 @@ export default function TopicPage() {
                 credentials: "include",
                 body: JSON.stringify({ maxUses: 1, expiresInDays: 1 }),
             });
-            if (res.status === 401)
-                return (window.location.href = "/login?next=/home/" + slug);
-            if (res.status === 403)
+            if (res.status === 401) return (window.location.href = "/login?next=/home/" + slug);
+            if (res.status === 403) {
                 return Swal.fire({
                     toast: true,
                     position: "top",
@@ -250,9 +250,10 @@ export default function TopicPage() {
                     showConfirmButton: false,
                     timer: 2000,
                 });
+            }
 
             const json = await res.json();
-            if (!json.ok)
+            if (!json.ok) {
                 return Swal.fire({
                     toast: true,
                     position: "top",
@@ -261,22 +262,14 @@ export default function TopicPage() {
                     showConfirmButton: false,
                     timer: 2000,
                 });
+            }
 
-            await navigator.clipboard.writeText(json.data.invite_url);
-            Swal.fire({
-                toast: true,
-                position: "top",
-                icon: "success",
-                title: "คัดลอกลิงก์เชิญแล้ว",
-                text: "ลิงก์นี้ใช้ได้ 1 คน / 24 ชม.",
-                showConfirmButton: false,
-                timer: 2500,
-            });
+            // เปิดป๊อปอัป QR + ปุ่มคัดลอก
+            setInviteUrl(json.data.invite_url);
+            setInviteOpen(true);
 
-            // refresh เฉพาะ owner
-            const r2 = await fetch(`${API_BASE}/topics/${slug}/invites`, {
-                credentials: "include",
-            });
+            // รีเฟรชรายการ invite ของ owner
+            const r2 = await fetch(`${API_BASE}/topics/${slug}/invites`, { credentials: "include" });
             const j2 = await r2.json();
             if (j2.ok) setInvites(j2.data);
         } catch (e) {
@@ -291,6 +284,7 @@ export default function TopicPage() {
             });
         }
     };
+
 
     // โหลด lists ของหัวข้อนี้
     useEffect(() => {
@@ -829,6 +823,12 @@ export default function TopicPage() {
                 loading={editLoading}
             />
 
+            <InviteModal
+                open={inviteOpen}
+                onClose={() => setInviteOpen(false)}
+                url={inviteUrl}
+            />
+
         </div>
     );
 }
@@ -1139,6 +1139,107 @@ function MembersModal({
                             ))}
                         </div>
                     )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function InviteModal({ open, onClose, url }) {
+    const dialogId = "invite-modal-title";
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+        document.addEventListener("keydown", onKey);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKey);
+            document.body.style.overflow = prev;
+        };
+    }, [open, onClose]);
+
+    if (!open) return null;
+
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(url || "")}`;
+
+    const copyLink = async () => {
+        try {
+            await navigator.clipboard.writeText(url);
+            Swal.fire({ toast: true, position: "top", icon: "success", title: "คัดลอกลิงก์แล้ว", showConfirmButton: false, timer: 1500 });
+        } catch {
+            Swal.fire({ toast: true, position: "top", icon: "error", title: "คัดลอกไม่สำเร็จ", showConfirmButton: false, timer: 1500 });
+        }
+    };
+
+    const shareLink = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: "ชวนเข้าหัวข้อ", text: "กดเพื่อเข้าร่วม", url });
+            } catch { /* cancel */ }
+        } else {
+            copyLink();
+        }
+    };
+
+    return (
+        <div className={styles.modalOverlay} onClick={onClose}>
+            <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={dialogId}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className={styles.modalHeader}>
+                    <h3 id={dialogId}>ลิงก์เชิญ</h3>
+                    <button type="button" className={styles.modalClose} onClick={onClose}>✕</button>
+                </div>
+
+                <div className={styles.modalBody} style={{ textAlign: "center" }}>
+                    {/* QR Code */}
+                    <img
+                        src={qrSrc}
+                        alt="QR Invite"
+                        className={styles.qrImage}
+                        width={240}
+                        height={240}
+                    />
+
+                    {/* ลิงก์ */}
+                    <div style={{ marginTop: 12 }}>
+                        <input
+                            ref={inputRef}
+                            className={styles.input}
+                            type="text"
+                            readOnly
+                            value={url || ""}
+                            onFocus={(e) => e.target.select()}
+                        />
+                    </div>
+
+                    <p style={{ marginTop: 8, opacity: .7, fontSize: 14 }}>
+                        ลิงก์นี้ใช้ได้ 1 คน / 24 ชม.
+                    </p>
+                </div>
+
+                <div className={styles.modalActions}>
+                    <a
+                        href={qrSrc}
+                        download="invite-qr.png"
+                        className={styles.secondaryBtn ?? styles.cancelBtn}
+                        style={{ textDecoration: "none", textAlign: "center" }}
+                    >
+                        ดาวน์โหลด QR
+                    </a>
+                    <button type="button" className={styles.secondaryBtn ?? styles.cancelBtn} onClick={shareLink}>
+                        แชร์
+                    </button>
+                    <button type="button" className={styles.confirmBtn} onClick={copyLink}>
+                        คัดลอกลิงก์
+                    </button>
                 </div>
             </div>
         </div>
