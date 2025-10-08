@@ -534,7 +534,7 @@
     border-radius: 10px;
     background: #8b5cf6;
     color: #fff;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     min-width: 120px;
@@ -606,7 +606,8 @@
     border-radius: 10px;
     background: #f3f4f6;
     color: #111827;
-    font-size: 16px;
+    font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
     min-width: 120px;
 }

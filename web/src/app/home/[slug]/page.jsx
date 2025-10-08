@@ -1226,19 +1226,11 @@ function InviteModal({ open, onClose, url }) {
                 </div>
 
                 <div className={styles.modalActions}>
-                    <a
-                        href={qrSrc}
-                        download="invite-qr.png"
-                        className={styles.secondaryBtn ?? styles.cancelBtn}
-                        style={{ textDecoration: "none", textAlign: "center" }}
-                    >
-                        ดาวน์โหลด QR
-                    </a>
-                    <button type="button" className={styles.secondaryBtn ?? styles.cancelBtn} onClick={shareLink}>
-                        แชร์
-                    </button>
                     <button type="button" className={styles.confirmBtn} onClick={copyLink}>
                         คัดลอกลิงก์
+                    </button>
+                    <button type="button" className={styles.cancelBtn} onClick={shareLink}>
+                        แชร์
                     </button>
                 </div>
             </div>

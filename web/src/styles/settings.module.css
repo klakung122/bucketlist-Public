@@ -124,6 +124,8 @@
     cursor: pointer;
     border: 1px solid transparent;
     background: #fff;
+    font-size: 14px;
+    font-weight: 700;
 }
 
 .btn {
