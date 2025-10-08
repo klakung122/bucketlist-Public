@@ -120,11 +120,8 @@
     overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-
-    /* Firefox */
+    gap: 8px;
     scrollbar-width: none;
-    /* ซ่อน scrollbar */
 }
 
 /* Chrome, Edge, Safari */
@@ -293,15 +290,6 @@
 .email {
     font-size: 0.9rem;
     color: #6b7280;
-}
-
-/* ===== Topic list skeleton ===== */
-.topicList {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 8px;
 }
 
 .topicSkeleton {

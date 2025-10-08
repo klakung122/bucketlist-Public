@@ -105,6 +105,9 @@
     font-weight: 500;
     color: #333;
     transition: 0.2s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .topicLink:hover {
