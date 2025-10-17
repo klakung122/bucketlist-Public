@@ -143,3 +143,12 @@
 .big:hover::after {
     left: 120%;
 }
+
+@media (max-width: 430px) {
+
+    .primary,
+    .outline {
+        font-size: 14px;
+        padding: 5px 10px;
+    }
+}
